@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام إدارة عيادة الأسنان</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--primary:#0e7490;--primary-dark:#155e75;--accent:#14b8a6;--danger:#dc2626;--border:#e5e7eb;--warn:#f59e0b;--ok:#16a34a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+header h1{font-size:1.25rem;font-weight:700}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav button{background:rgba(255,255,255,.15);border:0;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.95rem}
+nav button.active,nav button:hover{background:#fff;color:var(--primary-dark)}
+main{max-width:1100px;margin:20px auto;padding:0 16px}
+.view{display:none}.view.active{display:block}
+.card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:16px}
+.grid{display:grid;gap:14px}
+.grid-4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.grid-2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.stat{text-align:center;padding:20px}
+.stat .num{font-size:2rem;font-weight:700;color:var(--primary)}
+.stat .lbl{color:var(--muted)}
+h2{font-size:1.15rem;margin-bottom:12px;color:var(--primary-dark)}
+h3{font-size:1rem;margin:10px 0}
+label{display:block;font-size:.9rem;color:var(--muted);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.95rem;background:#fff}
+textarea{min-height:70px;resize:vertical}
+.field{margin-bottom:12px}
+.btn{background:var(--primary);color:#fff;border:0;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.95rem}
+.btn:hover{background:var(--primary-dark)}
+.btn.secondary{background:#e5e7eb;color:var(--text)}
+.btn.danger{background:var(--danger)}
+.btn.small{padding:5px 10px;font-size:.85rem}
+table{width:100%;border-collapse:collapse;font-size:.93rem}
+th,td{padding:9px 8px;border-bottom:1px solid var(--border);text-align:right}
+th{background:#f9fafb;color:var(--muted);font-weight:600}
+tr:hover td{background:#f9fafb}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:600}
+.badge.ok{background:#dcfce7;color:var(--ok)}.badge.warn{background:#fef3c7;color:#b45309}.badge.bad{background:#fee2e2;color:var(--danger)}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:14px;overflow-x:auto}
+.tabs button{background:none;border:0;padding:10px 16px;cursor:pointer;font-family:inherit;font-size:.95rem;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tabs button.active{color:var(--primary);border-color:var(--primary);font-weight:600}
+.tab{display:none}.tab.active{display:block}
+.xrays{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.xray{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#000;cursor:pointer}
+.xray img{width:100%;height:130px;object-fit:cover;display:block}
+.xray .meta{background:#fff;padding:6px 8px;font-size:.8rem;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:30px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.open{display:flex}
+.modal .box{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:560px;max-height:92vh;overflow:auto}
+.modal .box.img{background:#000;padding:0;max-width:900px}
+.modal .box.img img{width:100%;display:block}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:.3s;z-index:60}
+.toast.show{opacity:1}
+.tooth-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin:8px 0}
+.tooth{border:1px solid var(--border);border-radius:5px;text-align:center;font-size:.72rem;padding:5px 0;cursor:pointer;background:#fff}
+.tooth.sel{background:var(--primary);color:#fff}
+.tooth.done{background:#dcfce7}
+.search{max-width:360px}
+.money{font-weight:700}
+.pos{color:var(--ok)}.neg{color:var(--danger)}
+@media(max-width:600px){header{padding:12px}main{padding:0 10px}.tooth-grid{grid-template-columns:repeat(8,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="clinicTitle">🦷 عيادة الأسنان</h1>
+  <nav>
+    <button data-view="dashboard" class="active">الرئيسية</button>
+    <button data-view="patients">المرضى</button>
+    <button data-view="appointments">المواعيد</button>
+    <button data-view="settings">الإعدادات</button>
+  </nav>
+</header>
+
+<main>
+<!-- Dashboard -->
+<section id="view-dashboard" class="view active">
+  <div class="grid grid-4">
+    <div class="card stat"><div class="num" id="stPatients">0</div><div class="lbl">مريض</div></div>
+    <div class="card stat"><div class="num" id="stToday">0</div><div class="lbl">مواعيد اليوم</div></div>
+    <div class="card stat"><div class="num" id="stIncome">0</div><div class="lbl">إجمالي المدفوعات</div></div>
+    <div class="card stat"><div class="num neg" id="stDue">0</div><div class="lbl">مبالغ مستحقة</div></div>
+  </div>
+  <div class="card">
+    <div class="row between"><h2>مواعيد اليوم</h2><button class="btn small" onclick="showView('appointments')">كل المواعيد</button></div>
+    <div id="todayList"></div>
+  </div>
+  <div class="card">
+    <h2>آخر المرضى</h2>
+    <div id="recentPatients"></div>
+  </div>
+</section>
+
+<!-- Patients list -->
+<section id="view-patients" class="view">
+  <div class="card">
+    <div class="row between">
+      <input class="search" id="searchBox" placeholder="🔍 بحث بالاسم أو الهاتف..." oninput="renderPatients()">
+      <button class="btn" onclick="openPatientForm()">+ مريض جديد</button>
+    </div>
+  </div>
+  <div class="card"><div id="patientsTable"></div></div>
+</section>
+
+<!-- Patient detail -->
+<section id="view-patient" class="view">
+  <div class="card">
+    <div class="row between">
+      <div><h2 id="pName"></h2><div id="pInfo" style="color:var(--muted);font-size:.9rem"></div></div>
+      <div class="row">
+        <button class="btn secondary small" onclick="showView('patients')">← رجوع</button>
+        <button class="btn small" onclick="openPatientForm(currentId)">تعديل البيانات</button>
+        <button class="btn danger small" onclick="deletePatient()">حذف</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <button data-tab="exam" class="active">المعاينة</button>
+      <button data-tab="treat">أقسام العلاج</button>
+      <button data-tab="xray">صور الأشعة</button>
+      <button data-tab="pay">الدفعات</button>
+    </div>
+
+    <div id="tab-exam" class="tab active">
+      <div class="grid grid-2">
+        <div class="field"><label>التاريخ الطبي / أمراض مزمنة</label><textarea id="exMedical"></textarea></div>
+        <div class="field"><label>حساسية من أدوية</label><textarea id="exAllergy"></textarea></div>
+        <div class="field"><label>الشكوى الرئيسية</label><textarea id="exComplaint"></textarea></div>
+        <div class="field"><label>ملاحظات الفحص</label><textarea id="exNotes"></textarea></div>
+      </div>
+      <h3>مخطط الأسنان (اضغط على السن لتحديده كمعالَج)</h3>
+      <div class="tooth-grid" id="toothChart"></div>
+      <button class="btn" onclick="saveExam()">حفظ المعاينة</button>
+    </div>
+
+    <div id="tab-treat" class="tab">
+      <div class="card" style="background:#f9fafb">
+        <h3>إضافة إجراء علاجي</h3>
+        <div class="grid grid-2">
+          <div class="field"><label>التاريخ</label><input type="date" id="trDate"></div>
+          <div class="field"><label>القسم</label>
+            <select id="trType">
+              <option>فحص وتشخيص</option><option>تنظيف وتلميع</option><option>حشو</option><option>علاج عصب</option>
+              <option>خلع</option><option>تركيبات (تاج/جسر)</option><option>زراعة</option><option>تقويم</option>
+              <option>تبييض</option><option>علاج لثة</option><option>أطفال</option><option>أخرى</option>
+            </select></div>
+          <div class="field"><label>رقم السن</label><input id="trTooth" placeholder="مثال: 16"></div>
+          <div class="field"><label>التكلفة</label><input type="number" id="trCost" min="0" placeholder="0"></div>
+        </div>
+        <div class="field"><label>التفاصيل</label><textarea id="trNotes"></textarea></div>
+        <button class="btn" onclick="addTreatment()">إضافة</button>
+      </div>
+      <div id="treatList"></div>
+    </div>
+
+    <div id="tab-xray" class="tab">
+      <div class="row" style="margin-bottom:14px">
+        <input type="file" id="xrayFile" accept="image/*" multiple style="max-width:300px">
+        <input id="xrayNote" placeholder="وصف الصورة (اختياري)" style="max-width:260px">
+        <button class="btn" onclick="addXray()">رفع الصور</button>
+      </div>
+      <div class="xrays" id="xrayList"></div>
+    </div>
+
+    <div id="tab-pay" class="tab">
+      <div class="grid grid-4" style="margin-bottom:14px">
+        <div class="card stat"><div class="num" id="payTotalCost">0</div><div class="lbl">تكلفة العلاج</div></div>
+        <div class="card stat"><div class="num pos" id="payTotalPaid">0</div><div class="lbl">المدفوع</div></div>
+        <div class="card stat"><div class="num neg" id="payDue">0</div><div class="lbl">المتبقي</div></div>
+      </div>
+      <div class="card" style="background:#f9fafb">
+        <h3>تسجيل دفعة</h3>
+        <div class="grid grid-2">
+          <div class="field"><label>التاريخ</label><input type="date" id="payDate"></div>
+          <div class="field"><label>المبلغ</label><input type="number" id="payAmount" min="0"></div>
+          <div class="field"><label>طريقة الدفع</label><select id="payMethod"><option>نقدًا</option><option>بطاقة</option><option>تحويل</option><option>تأمين</option></select></div>
+          <div class="field"><label>ملاحظة</label><input id="payNote"></div>
+        </div>
+        <button class="btn" onclick="addPayment()">إضافة الدفعة</button>
+      </div>
+      <div id="payList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Appointments -->
+<section id="view-appointments" class="view">
+  <div class="card">
+    <h2>إضافة موعد</h2>
+    <div class="grid grid-2">
+      <div class="field"><label>المريض</label><select id="apPatient"></select></div>
+      <div class="field"><label>التاريخ والوقت</label><input type="datetime-local" id="apTime"></div>
+      <div class="field"><label>سبب الزيارة</label><input id="apReason"></div>
+    </div>
+    <button class="btn" onclick="addAppointment()">حفظ الموعد</button>
+  </div>
+  <div class="card"><h2>المواعيد القادمة</h2><div id="apList"></div></div>
+</section>
+
+<!-- Settings -->
+<section id="view-settings" class="view">
+  <div class="card">
+    <h2>بيانات العيادة</h2>
+    <div class="grid grid-2">
+      <div class="field"><label>اسم العيادة</label><input id="setName"></div>
+      <div class="field"><label>اسم الطبيب</label><input id="setDoctor"></div>
+      <div class="field"><label>الهاتف</label><input id="setPhone"></div>
+      <div class="field"><label>العملة</label><input id="setCurrency" placeholder="₪"></div>
+    </div>
+    <button class="btn" onclick="saveSettings()">حفظ</button>
+  </div>
+  <div class="card">
+    <h2>النسخ الاحتياطي</h2>
+    <p style="color:var(--muted);margin-bottom:12px">البيانات محفوظة داخل هذا المتصفح فقط. صدّر نسخة احتياطية بانتظام واحتفظ بها.</p>
+    <div class="row">
+      <button class="btn" onclick="exportData()">⬇ تصدير نسخة احتياطية</button>
+      <input type="file" id="importFile" accept=".json" style="max-width:260px">
+      <button class="btn secondary" onclick="importData()">⬆ استعادة</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- Patient form modal -->
+<div class="modal" id="patientModal">
+  <div class="box">
+    <h2 id="pmTitle">مريض جديد</h2>
+    <div class="grid grid-2">
+      <div class="field"><label>الاسم الكامل *</label><input id="fName"></div>
+      <div class="field"><label>الهاتف</label><input id="fPhone"></div>
+      <div class="field"><label>تاريخ الميلاد</label><input type="date" id="fDob"></div>
+      <div class="field"><label>الجنس</label><select id="fGender"><option>ذكر</option><option>أنثى</option></select></div>
+      <div class="field"><label>العنوان</label><input id="fAddress"></div>
+      <div class="field"><label>رقم الملف</label><input id="fFileNo"></div>
+    </div>
+    <div class="field"><label>ملاحظات</label><textarea id="fNotes"></textarea></div>
+    <div class="row">
+      <button class="btn" onclick="savePatient()">حفظ</button>
+      <button class="btn secondary" onclick="closeModal('patientModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="imgModal" onclick="closeModal('imgModal')"><div class="box img"><img id="imgBig"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- IndexedDB ---------- */
+const DB_NAME='dentalClinicDB', DB_VER=1;
+const STORES=['patients','treatments','xrays','payments','appointments','settings'];
+let db;
+function openDB(){return new Promise((res,rej)=>{
+  const r=indexedDB.open(DB_NAME,DB_VER);
+  r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s)){const st=d.createObjectStore(s,{keyPath:'id'});if(s!=='patients'&&s!=='settings')st.createIndex('patientId','patientId');}})};
+  r.onsuccess=e=>{db=e.target.result;res()};r.onerror=()=>rej(r.error);
+})}
+const tx=(s,m='readonly')=>db.transaction(s,m).objectStore(s);
+const put=(s,o)=>new Promise((res,rej)=>{const r=tx(s,'readwrite').put(o);r.onsuccess=()=>res(o);r.onerror=()=>rej(r.error)});
+const del=(s,id)=>new Promise((res,rej)=>{const r=tx(s,'readwrite').delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+const getAll=(s)=>new Promise((res,rej)=>{const r=tx(s).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const get=(s,id)=>new Promise((res,rej)=>{const r=tx(s).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const byPatient=(s,pid)=>new Promise((res,rej)=>{const r=tx(s).index('patientId').getAll(pid);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* ---------- Helpers ---------- */
+let settings={name:'عيادة الأسنان',doctor:'',phone:'',currency:'₪'};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>(Number(n)||0).toLocaleString('ar')+' '+settings.currency;
+const today=()=>new Date().toISOString().slice(0,10);
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+function closeModal(id){$(id).classList.remove('open')}
+function age(dob){if(!dob)return'';const d=new Date(dob),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n<new Date(n.getFullYear(),d.getMonth(),d.getDate()))a--;return a+' سنة'}
+
+/* ---------- Navigation ---------- */
+function showView(v){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-'+v).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  if(v==='dashboard')renderDashboard();if(v==='patients')renderPatients();if(v==='appointments')renderAppointments();if(v==='settings')loadSettingsForm();window.scrollTo(0,0)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('tab-'+b.dataset.tab).classList.add('active')});
+
+/* ---------- Dashboard ---------- */
+async function renderDashboard(){
+  const [ps,pays,trs,aps]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments'),getAll('appointments')]);
+  const paid=pays.reduce((a,p)=>a+Number(p.amount||0),0), cost=trs.reduce((a,t)=>a+Number(t.cost||0),0);
+  $('stPatients').textContent=ps.length;$('stIncome').textContent=money(paid);$('stDue').textContent=money(Math.max(cost-paid,0));
+  const t=today();const todayAps=aps.filter(a=>(a.time||'').slice(0,10)===t).sort((a,b)=>a.time.localeCompare(b.time));
+  $('stToday').textContent=todayAps.length;
+  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  $('todayList').innerHTML=todayAps.length?'<table><tr><th>الوقت</th><th>المريض</th><th>السبب</th></tr>'+todayAps.map(a=>`<tr><td>${a.time.slice(11,16)}</td><td><a href="#" onclick="openPatient('${a.patientId}');return false">${esc(pm[a.patientId]?.name||'—')}</a></td><td>${esc(a.reason)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد مواعيد اليوم</div>';
+  const recent=[...ps].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,5);
+  $('recentPatients').innerHTML=recent.length?'<table>'+recent.map(p=>`<tr><td><a href="#" onclick="openPatient('${p.id}');return false">${esc(p.name)}</a></td><td>${esc(p.phone||'')}</td></tr>`).join('')+'</table>':'<div class="empty">لم يُضف مرضى بعد</div>';
+}
+
+/* ---------- Patients ---------- */
+async function renderPatients(){
+  const q=($('searchBox').value||'').trim().toLowerCase();
+  const [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);
+  const list=ps.filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.phone||'').includes(q)||(p.fileNo||'').includes(q)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+  if(!list.length){$('patientsTable').innerHTML='<div class="empty">لا يوجد مرضى</div>';return}
+  $('patientsTable').innerHTML='<table><tr><th>رقم الملف</th><th>الاسم</th><th>الهاتف</th><th>العمر</th><th>الحالة المالية</th><th></th></tr>'+list.map(p=>{
+    const c=trs.filter(t=>t.patientId===p.id).reduce((a,t)=>a+Number(t.cost||0),0),pd=pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0),due=c-pd;
+    return `<tr><td>${esc(p.fileNo||'')}</td><td><a href="#" onclick="openPatient('${p.id}');return false"><b>${esc(p.name)}</b></a></td><td>${esc(p.phone||'')}</td><td>${age(p.dob)}</td><td>${due>0?`<span class="badge bad">متبقي ${money(due)}</span>`:'<span class="badge ok">مسدد</span>'}</td><td><button class="btn small" onclick="openPatient('${p.id}')">فتح</button></td></tr>`}).join('')+'</table>';
+}
+let editingId=null;
+async function openPatientForm(id){editingId=id||null;$('pmTitle').textContent=id?'تعديل بيانات المريض':'مريض جديد';
+  const p=id?await get('patients',id):{};
+  $('fName').value=p.name||'';$('fPhone').value=p.phone||'';$('fDob').value=p.dob||'';$('fGender').value=p.gender||'ذكر';$('fAddress').value=p.address||'';$('fFileNo').value=p.fileNo||'';$('fNotes').value=p.notes||'';
+  $('patientModal').classList.add('open');$('fName').focus()}
+async function savePatient(){const name=$('fName').value.trim();if(!name)return toast('الاسم مطلوب');
+  const p=editingId?await get('patients',editingId):{id:uid(),createdAt:Date.now(),exam:{},teeth:[]};
+  Object.assign(p,{name,phone:$('fPhone').value.trim(),dob:$('fDob').value,gender:$('fGender').value,address:$('fAddress').value.trim(),fileNo:$('fFileNo').value.trim()||p.fileNo||String(Date.now()).slice(-6),notes:$('fNotes').value.trim()});
+  await put('patients',p);closeModal('patientModal');toast('تم الحفظ');
+  if(editingId&&currentId===editingId)openPatient(currentId);else showView('patients')}
+
+/* ---------- Patient detail ---------- */
+let currentId=null,currentP=null;
+async function openPatient(id){currentId=id;currentP=await get('patients',id);if(!currentP)return;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-patient').classList.add('active');
+  $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&'ملف: '+currentP.fileNo,currentP.phone,currentP.gender,age(currentP.dob),currentP.address].filter(Boolean).join(' • ');
+  const ex=currentP.exam||{};$('exMedical').value=ex.medical||'';$('exAllergy').value=ex.allergy||'';$('exComplaint').value=ex.complaint||'';$('exNotes').value=ex.notes||'';
+  renderTeeth();$('trDate').value=today();$('payDate').value=today();
+  await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);window.scrollTo(0,0)}
+const TEETH=[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
+function renderTeeth(){const sel=new Set(currentP.teeth||[]);$('toothChart').innerHTML=TEETH.map(n=>`<div class="tooth ${sel.has(n)?'sel':''}" onclick="toggleTooth(${n})">${n}</div>`).join('')}
+function toggleTooth(n){const s=new Set(currentP.teeth||[]);s.has(n)?s.delete(n):s.add(n);currentP.teeth=[...s];renderTeeth()}
+async function saveExam(){currentP.exam={medical:$('exMedical').value,allergy:$('exAllergy').value,complaint:$('exComplaint').value,notes:$('exNotes').value};await put('patients',currentP);toast('تم حفظ المعاينة')}
+async function deletePatient(){if(!confirm('حذف المريض وكل سجلاته وصوره؟'))return;
+  for(const s of['treatments','xrays','payments','appointments']){const items=await byPatient(s,currentId);for(const i of items)await del(s,i.id)}
+  await del('patients',currentId);toast('تم الحذف');showView('patients')}
+
+/* Treatments */
+async function addTreatment(){const t={id:uid(),patientId:currentId,date:$('trDate').value||today(),type:$('trType').value,tooth:$('trTooth').value.trim(),cost:Number($('trCost').value)||0,notes:$('trNotes').value.trim()};
+  await put('treatments',t);$('trTooth').value='';$('trCost').value='';$('trNotes').value='';toast('تمت الإضافة');renderTreatments();renderPayments()}
+async function renderTreatments(){const l=(await byPatient('treatments',currentId)).sort((a,b)=>b.date.localeCompare(a.date));
+  $('treatList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>القسم</th><th>السن</th><th>التفاصيل</th><th>التكلفة</th><th></th></tr>'+l.map(t=>`<tr><td>${t.date}</td><td>${esc(t.type)}</td><td>${esc(t.tooth)}</td><td>${esc(t.notes)}</td><td class="money">${money(t.cost)}</td><td><button class="btn danger small" onclick="delItem('treatments','${t.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد إجراءات مسجلة</div>'}
+async function delItem(s,id){if(!confirm('تأكيد الحذف؟'))return;await del(s,id);toast('تم الحذف');renderTreatments();renderXrays();renderPayments()}
+
+/* X-rays */
+function readImg(file){return new Promise(res=>{const img=new Image(),r=new FileReader();r.onload=()=>{img.onload=()=>{const max=1600,sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.85))};img.src=r.result};r.readAsDataURL(file)})}
+async function addXray(){const files=[...$('xrayFile').files];if(!files.length)return toast('اختر صورة أولًا');
+  for(const f of files){const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),note:$('xrayNote').value.trim(),data})}
+  $('xrayFile').value='';$('xrayNote').value='';toast('تم رفع '+files.length+' صورة');renderXrays()}
+async function renderXrays(){const l=(await byPatient('xrays',currentId)).sort((a,b)=>b.id.localeCompare(a.id));
+  $('xrayList').innerHTML=l.length?l.map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)} <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">حذف</a></div></div>`).join(''):'<div class="empty">لا توجد صور أشعة</div>'}
+
+/* Payments */
+async function addPayment(){const a=Number($('payAmount').value);if(!a)return toast('أدخل المبلغ');
+  await put('payments',{id:uid(),patientId:currentId,date:$('payDate').value||today(),amount:a,method:$('payMethod').value,note:$('payNote').value.trim()});
+  $('payAmount').value='';$('payNote').value='';toast('تم تسجيل الدفعة');renderPayments()}
+async function renderPayments(){const [pays,trs]=await Promise.all([byPatient('payments',currentId),byPatient('treatments',currentId)]);
+  const cost=trs.reduce((a,t)=>a+Number(t.cost||0),0),paid=pays.reduce((a,p)=>a+Number(p.amount||0),0);
+  $('payTotalCost').textContent=money(cost);$('payTotalPaid').textContent=money(paid);$('payDue').textContent=money(cost-paid);
+  const l=pays.sort((a,b)=>b.date.localeCompare(a.date));
+  $('payList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظة</th><th></th></tr>'+l.map(p=>`<tr><td>${p.date}</td><td class="money pos">${money(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td><td><button class="btn danger small" onclick="delItem('payments','${p.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد دفعات</div>'}
+
+/* ---------- Appointments ---------- */
+async function renderAppointments(){const [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);
+  $('apPatient').innerHTML=ps.sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';
+  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const l=aps.sort((a,b)=>a.time.localeCompare(b.time));
+  $('apList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>الوقت</th><th>المريض</th><th>السبب</th><th></th></tr>'+l.map(a=>`<tr><td>${a.time.slice(0,10)}</td><td>${a.time.slice(11,16)}</td><td><a href="#" onclick="openPatient('${a.patientId}');return false">${esc(pm[a.patientId]?.name||'—')}</a></td><td>${esc(a.reason)}</td><td><button class="btn danger small" onclick="delAp('${a.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد مواعيد</div>'}
+async function addAppointment(){const pid=$('apPatient').value,t=$('apTime').value;if(!pid||!t)return toast('اختر المريض والوقت');
+  await put('appointments',{id:uid(),patientId:pid,time:t,reason:$('apReason').value.trim()});$('apReason').value='';toast('تم حفظ الموعد');renderAppointments()}
+async function delAp(id){await del('appointments',id);renderAppointments()}
+
+/* ---------- Settings & backup ---------- */
+async function loadSettings(){const s=await get('settings','main');if(s)settings={...settings,...s};$('clinicTitle').textContent='🦷 '+settings.name;document.title=settings.name}
+function loadSettingsForm(){$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency}
+async function saveSettings(){settings={id:'main',name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪'};await put('settings',settings);await loadSettings();toast('تم الحفظ')}
+async function exportData(){const out={};for(const s of STORES)out[s]=await getAll(s);const b=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dental-backup-'+today()+'.json';a.click();toast('تم التصدير')}
+async function importData(){const f=$('importFile').files[0];if(!f)return toast('اختر ملف النسخة');if(!confirm('سيتم دمج البيانات من النسخة الاحتياطية. متابعة؟'))return;
+  const data=JSON.parse(await f.text());for(const s of STORES)for(const o of(data[s]||[]))await put(s,o);await loadSettings();toast('تمت الاستعادة');showView('dashboard')}
+
+/* ---------- Init ---------- */
+(async()=>{await openDB();await loadSettings();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()})();
+</script>
+</body>
+</html>
