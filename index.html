@@ -2,7 +2,12 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e7490">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="عيادة الأسنان">
 <title>نظام إدارة عيادة الأسنان</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -121,7 +126,46 @@ tr:hover td{background:#f9fafb}
 .who button{background:rgba(255,255,255,.9);color:var(--danger);border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;font-weight:700}
 .role{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
 .role.doctor{background:#e0f2fe;color:var(--primary-dark)}.role.reception{background:#fef3c7;color:#b45309}.role.manager{background:#ede9fe;color:#6d28d9}
-@media(max-width:600px){header{padding:12px}main{padding:0 10px}.tooth-grid{grid-template-columns:repeat(8,1fr)}}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+main{width:100%}
+.card,.modal .box{max-width:100%}
+@media(max-width:900px){
+  main{max-width:100%}
+  .grid-4{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+}
+@media(max-width:700px){
+  .card,.modal .box{overflow-x:auto}
+  table{width:auto;min-width:100%;border-collapse:collapse}
+  th,td{white-space:nowrap}
+  .xrays{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+}
+@media(max-width:600px){
+  header{padding:10px 12px}
+  header h1{font-size:1.05rem}
+  main{padding:0 10px;margin:14px auto}
+  .tooth-grid{grid-template-columns:repeat(8,1fr)}
+  input,select,textarea,.btn{font-size:16px}
+  .btn.small{font-size:16px;padding:8px 12px}
+  nav{width:100%;justify-content:flex-start}
+  nav button{padding:8px 10px;font-size:.85rem;flex:1 1 auto;text-align:center}
+  .langsw,.lock,.who{font-size:.8rem}
+  .grid-4,.grid-2{grid-template-columns:1fr 1fr}
+  .tiles{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+  .tiles.small{grid-template-columns:repeat(2,1fr)}
+  .stat{padding:14px}
+  .stat .num{font-size:1.5rem}
+  .modal{padding:0}
+  .modal .box{border-radius:0;max-width:100%;width:100%;height:100%;max-height:100%}
+  .search{max-width:100%}
+  .row{gap:8px}
+  .pbar select{max-width:100%}
+}
+@media(max-width:420px){
+  .grid-4,.grid-2,.tiles.small{grid-template-columns:1fr 1fr}
+  header h1{font-size:.95rem}
+  .tile .ico{font-size:1.5rem}
+  .tile .t{font-size:.95rem}
+}
 </style>
 </head>
 <body>
@@ -979,10 +1023,7 @@ const L={
 'اسم المستخدم غير موجود':['שם המשתמש לא קיים','Username not found'],'لا يوجد رمز استرجاع مُعدّ':['לא הוגדר קוד שחזור','No recovery code is set'],'رمز الاسترجاع غير صحيح':['קוד השחזור שגוי','Wrong recovery code'],'اسم المستخدم أو كلمة المرور غير صحيحة':['שם משתמש או סיסמה שגויים','Wrong username or password'],'محاولات كثيرة — انتظر':['יותר מדי ניסיונות — המתן','Too many attempts — wait'],'ثانية':['שניות','seconds'],'مرحبًا':['שלום','Welcome'],
 'تم تغيير كلمة المرور — ولّد رمز استرجاع جديدًا من الإعدادات':['הסיסמה שונתה — צור קוד שחזור חדש בהגדרות','Password changed — generate a new recovery code in Settings'],'لم يُعدّ رمز استرجاع لهذا النظام. تواصل مع الطبيب أو استعد نسخة احتياطية.':['לא הוגדר קוד שחזור. פנה לרופא או שחזר גיבוי.','No recovery code was set up. Contact the doctor or restore a backup.'],'أدخل رمز الاسترجاع الذي أرسله الطبيب إلى':['הזן את קוד השחזור שהרופא שלח אל','Enter the recovery code the doctor sent to'],'بريده/هاتفه':['האימייל/הטלפון שלו','their email/phone'],'ثم اختر كلمة مرور جديدة.':['ואז בחר סיסמה חדשה.','then choose a new password.'],
 'رمز الاسترجاع لحسابك (يظهر مرة واحدة — احفظه أو أرسله لنفسك الآن):':['קוד השחזור לחשבונך (מוצג פעם אחת — שמור או שלח לעצמך עכשיו):','Your recovery code (shown once — save it or send it to yourself now):'],'بريد الطبيب (للاسترجاع)':['אימייל הרופא (לשחזור)','Doctor email (for recovery)'],'هاتف الطبيب (واتساب)':['טלפון הרופא (וואטסאפ)','Doctor phone (WhatsApp)'],'📲 واتساب':['📲 וואטסאפ','📲 WhatsApp'],'✉️ بريد':['✉️ אימייל','✉️ Email'],'حفظته — الدخول إلى النظام':['שמרתי — כניסה למערכת','Saved it — enter the system'],
-'المستخدمون وتسجيل الدخول':['משתמשים והתחברות','Users & sign-in'],'لا يمكن فتح النظام إلا بحساب مستخدم. حساب "طبيب" يرى كل شيء، وحساب "استقبال" يرى المواعيد والدفعات وبيانات الاتصال فقط.':['הכניסה למערכת רק עם חשבון משתמש. חשבון "רופא" רואה הכל; חשבון "קבלה" רואה תורים, תשלומים ופרטי קשר בלבד.','The system opens only with a user account. A "doctor" account sees everything; a "reception" account sees appointments, payments and contact details only.'],'إضافة مستخدم':['הוספת משתמש','Add user'],'كلمة المرور (6 أحرف أو أكثر)':['סיסמה (6 תווים ומעלה)','Password (6+ characters)'],'الصلاحية':['הרשאה','Role'],'استقبال':['קבלה','Reception'],'طبيب':['רופא','Doctor'],'إضافة المستخدم':['הוסף משתמש','Add user'],'المستخدم':['משתמש','User'],'أنت':['אתה','you'],'اسم المستخدم موجود مسبقًا':['שם המשתמש כבר קיים','Username already exists'],'حذف المستخدم':['מחיקת משתמש','Delete user'],
-'إذا نُسيت كلمة المرور يمكن إعادة تعيينها من شاشة الدخول باستخدام رمز الاسترجاع. ولّد الرمز وأرسله إلى بريد الطبيب أو هاتفه واحتفظ به في مكان آمن.':['אם הסיסמה נשכחה ניתן לאפס אותה ממסך הכניסה עם קוד שחזור. צור את הקוד, שלח לאימייל/טלפון של הרופא ושמור במקום בטוח.','If the password is forgotten it can be reset from the sign-in screen with a recovery code. Generate it, send it to the doctor\'s email or phone and keep it safe.'],'بريد الطبيب للاسترجاع':['אימייל הרופא לשחזור','Doctor recovery email'],'هاتف الطبيب للاسترجاع (واتساب)':['טלפון הרופא לשחזור (וואטסאפ)','Doctor recovery phone (WhatsApp)'],'حفظ بيانات الاسترجاع':['שמור פרטי שחזור','Save recovery details'],'🔑 توليد رمز استرجاع جديد':['🔑 צור קוד שחזור חדש','🔑 Generate new recovery code'],
-'رمز الاسترجاع (يظهر مرة واحدة فقط — احفظه الآن):':['קוד שחזור (מוצג פעם אחת — שמור עכשיו):','Recovery code (shown only once — save it now):'],'📲 إرسال إلى هاتف الطبيب':['📲 שלח לטלפון הרופא','📲 Send to doctor phone'],'✉️ إرسال إلى بريد الطبيب':['✉️ שלח לאימייל הרופא','✉️ Send to doctor email'],'رمز الاسترجاع مُعدّ':['קוד שחזור מוגדר','Recovery code is set'],'لا يوجد رمز استرجاع — ولّد واحدًا الآن':['אין קוד שחזור — צור אחד עכשיו','No recovery code — generate one now'],'ولّد رمز استرجاع أولًا':['צור קוד שחזור תחילה','Generate a recovery code first'],
-'رمز استرجاع كلمة المرور لنظام':['קוד שחזור סיסמה למערכת','Password recovery code for'],'احتفظ به في مكان آمن ولا تشاركه.':['שמור במקום בטוח ואל תשתף.','Keep it safe and do not share it.'],'أدخل هاتف الطبيب للاسترجاع أولًا':['הזן תחילה טלפון רופא לשחזור','Enter the doctor recovery phone first'],'أدخل بريد الطبيب للاسترجاع أولًا':['הזן תחילה אימייל רופא לשחזור','Enter the doctor recovery email first'],'رمز استرجاع كلمة المرور':['קוד שחזור סיסמה','Password recovery code'],'أدخل كلمة مرور حسابك':['הזן את סיסמת חשבונך','Enter your account password'],'هذا القسم للطبيب فقط — سجّل الدخول بحساب طبيب':['מדור זה לרופא בלבד — התחבר עם חשבון רופא','Doctor only — sign in with a doctor account'],
+'المستخدمون وتسجيل الدخول':['משתמשים והתחברות','Users & sign-in'],'لا يمكن فتح النظام إلا بحساب مستخدم. حساب "طبيب" يرى كل شيء، وحساب "استقبال" يرى المواعيد والدفعات وبيانات الاتصال فقط.':['הכניסה למערכת רק עם חשבון משתמש. חשבון "רופא" רואה הכל; חשבון "קבלה" רואה תורים, תשלומים ופרטי קשר בלבד.','The system opens only with a user account. A "doctor" account sees everything; a "reception" account sees appointments, payments and contact details only.'],'إضافة مستخدم':['הוספת משתמש','Add user'],'كلمة المرور (6 أحرف أو أكثر)':['סיסמה (6 תווים ומעלה)','Password (6+ characters)'],'الصلاحية':['הרשאה','Role'],'استقبال':['קבלה','Reception'],'طبيب':['רופא',ר במקום בטוח ואל תשתף.','Keep it safe and do not share it.'],'أدخل هاتف الطبيب للاسترجاع أولًا':['הזן תחילה טלפון רופא לשחזור','Enter the doctor recovery phone first'],'أدخل بريد الطبيب للاسترجاع أولًا':['הזן תחילה אימייל רופא לשחזור','Enter the doctor recovery email first'],'رمز استرجاع كلمة المرور':['קוד שחזור סיסמה','Password recovery code'],'أدخل كلمة مرور حسابك':['הזן את סיסמת חשבונך','Enter your account password'],'هذا القسم للطبيب فقط — سجّل الدخول بحساب طبيب':['מדור זה לרופא בלבד — התחבר עם חשבון רופא','Doctor only — sign in with a doctor account'],
 'المساعد التشخيصي (Claude AI)':['עוזר אבחון (Claude AI)','Diagnostic assistant (Claude AI)'],'تحليل الأعراض والتشخيص التفريقي':['ניתוח תסמינים ואבחנה מבדלת','Analyze symptoms & differential diagnosis'],'جاري التحليل...':['מנתח...','Analyzing...'],'التحليل والتشخيص التفريقي':['ניתוח ואבחנה מבדלת','Analysis & differential diagnosis'],'آخر تحليل':['ניתוח אחרון','Last analysis'],'قراءة الصورة الشعاعية':['קריאת הצילום','X-ray reading'],'تحليل بالذكاء الاصطناعي':['ניתוח AI','AI analysis'],'رأي مساعد بالذكاء الاصطناعي — القرار النهائي للطبيب المعالج.':['חוות דעת מסייעת של AI — ההחלטה הסופית של הרופא המטפל.','AI-assisted opinion — final decision rests with the treating doctor.'],
 'الذكاء الاصطناعي (Anthropic Claude)':['בינה מלאכותית (Anthropic Claude)','AI (Anthropic Claude)'],'مفتاح API':['מפתח API','API key'],'النموذج':['מודל','Model'],'اختبار الاتصال':['בדיקת חיבור','Test connection'],'المفتاح محفوظ':['המפתח נשמר','Key saved'],'الاتصال يعمل':['החיבור עובד','Connection works'],'أدخل مفتاح API في الإعدادات':['הזן מפתח API בהגדרות','Enter an API key in Settings'],
 'يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من':['מנתח תסמינים וצילומים ומציע אבחנה מבדלת עם מקורות מהימנים. דורש מפתח API מ-','Analyzes symptoms and X-rays and suggests a differential diagnosis with trusted references. Requires an API key from'],'. المفتاح يُحفظ في هذا المتصفح فقط.':['. המפתח נשמר בדפדפן זה בלבד.','. The key is stored only in this browser.'],
