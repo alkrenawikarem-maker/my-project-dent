@@ -53,7 +53,9 @@ tr:hover td{background:#f9fafb}
 .empty{text-align:center;color:var(--muted);padding:30px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
 .modal.open{display:flex}
-.modal .box{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:560px;max-height:92vh;overflow:auto}
+.modal .box{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:560px;max-height:92vh;overflow:auto;position:relative}
+.modal .actions{position:sticky;bottom:-20px;background:#fff;padding:12px 0 4px;margin-top:6px;border-top:1px solid var(--border)}
+.modal .box h2{position:sticky;top:-20px;background:#fff;padding:6px 0;z-index:1}
 .modal .box.img{background:#000;padding:0;max-width:900px}
 .modal .box.img img{width:100%;display:block}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:.3s;z-index:60}
@@ -404,8 +406,8 @@ tr:hover td{background:#f9fafb}
       <div class="field"><label>رقم الملف</label><input id="fFileNo"></div>
     </div>
     <div class="field"><label>ملاحظات</label><textarea id="fNotes"></textarea></div>
-    <div class="row">
-      <button class="btn" onclick="savePatient()">حفظ</button>
+    <div class="row actions">
+      <button class="btn" onclick="savePatient()">💾 حفظ</button>
       <button class="btn secondary" onclick="closeModal('patientModal')">إلغاء</button>
     </div>
   </div>
@@ -418,13 +420,17 @@ tr:hover td{background:#f9fafb}
 const DB_NAME='dentalClinicDB', DB_VER=2;
 const STORES=['patients','treatments','xrays','payments','appointments','settings','feedback'];
 let db;
-function openDB(){return new Promise((res,rej)=>{
-  const r=indexedDB.open(DB_NAME,DB_VER);
+function openDB(ver){return new Promise((res,rej)=>{
+  let r;try{r=ver?indexedDB.open(DB_NAME,ver):indexedDB.open(DB_NAME)}catch(e){return rej(e)}
   r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s)){const st=d.createObjectStore(s,{keyPath:'id'});if(s!=='patients'&&s!=='settings'&&s!=='feedback')st.createIndex('patientId','patientId');}})};
-  r.onsuccess=e=>{db=e.target.result;res()};r.onerror=()=>rej(r.error);
+  r.onblocked=()=>{dbFatal('يرجى إغلاق النوافذ الأخرى المفتوحة على النظام ثم إعادة التحميل')};
+  r.onsuccess=e=>{db=e.target.result;db.onversionchange=()=>{db.close();location.reload()};
+    const missing=STORES.filter(x=>!db.objectStoreNames.contains(x));if(missing.length){const v=db.version+1;db.close();return openDB(v).then(res,rej)}res()};
+  r.onerror=()=>{if(r.error&&r.error.name==='VersionError'){openDB(null).then(res,rej)}else rej(r.error)};
 })}
+function dbFatal(m){let b=$('dbErr');if(!b){b=document.createElement('div');b.id='dbErr';b.style.cssText='position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:12px;text-align:center;z-index:99;font-weight:700';document.body.appendChild(b)}b.textContent='⚠️ '+m}
 const tx=(s,m='readonly')=>db.transaction(s,m).objectStore(s);
-const put=(s,o)=>new Promise((res,rej)=>{const r=tx(s,'readwrite').put(o);r.onsuccess=()=>res(o);r.onerror=()=>rej(r.error)});
+const put=(s,o)=>new Promise((res,rej)=>{if(!db)return rej(new Error('DB not open'));const r=tx(s,'readwrite').put(o);r.onsuccess=()=>res(o);r.onerror=()=>rej(r.error)}).catch(e=>{toast('⚠️ فشل الحفظ: '+(e&&e.message||e));throw e});
 const del=(s,id)=>new Promise((res,rej)=>{const r=tx(s,'readwrite').delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
 const getAll=(s)=>new Promise((res,rej)=>{const r=tx(s).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const get=(s,id)=>new Promise((res,rej)=>{const r=tx(s).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
@@ -458,6 +464,7 @@ function showView(v){document.querySelectorAll('.view').forEach(x=>x.classList.r
   if(v==='dashboard')renderDashboard();if(v==='patients')renderPatients();if(v==='appointments')renderAppointments();if(v==='settings')loadSettingsForm();
   if(v==='treatments')renderTreatmentsView();if(v==='xrays')renderXraysView();if(v==='payments')renderPaymentsView();window.scrollTo(0,0)}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+$('patientModal').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();savePatient()}if(e.key==='Escape')closeModal('patientModal')});
 document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('tab-'+b.dataset.tab).classList.add('active')});
 
 /* ---------- Dashboard ---------- */
@@ -695,7 +702,7 @@ const L={
 'يظهر تنبيه داخل النظام وعلى الجهاز قبل كل موعد. اضغط لتفعيل تنبيهات الجهاز.':['תופיע התראה במערכת ובמכשיר לפני כל תור. לחץ להפעלת התראות מכשיר.','Alerts appear in the app and on the device before each appointment. Click to enable device notifications.'],
 'تفعيل تنبيهات الجهاز':['הפעל התראות מכשיר','Enable device notifications'],'تنبيه المرضى بالمبلغ المتبقي قبل موعدهم':['תזכורת למטופלים על יתרה לפני התור','Remind patients of balance before their appointment'],
 'اليوم':['היום','Today'],'القادمة':['הקרובים','Upcoming'],'السابقة':['קודמים','Past'],
-'بيانات العيادة':['פרטי המרפאה','Clinic details'],'اسم العيادة':['שם המרפאה','Clinic name'],'اسم الطبيب':['שם הרופא','Doctor name'],'الهاتف':['טלפון','Phone'],'العملة':['מטבע','Currency'],'حفظ':['שמור','Save'],
+'بيانات العيادة':['פרטי המרפאה','Clinic details'],'اسم العيادة':['שם המרפאה','Clinic name'],'اسم الطبيب':['שם הרופא','Doctor name'],'الهاتف':['טלפון','Phone'],'العملة':['מטבע','Currency'],'حفظ':['שמור','Save'],'💾 حفظ':['💾 שמור','💾 Save'],'يرجى إغلاق النوافذ الأخرى المفتوحة على النظام ثم إعادة التحميل':['סגור חלונות אחרים של המערכת וטען מחדש','Close other windows of this app and reload'],
 'إعدادات التنبيهات':['הגדרות התראות','Reminder settings'],'تنبيه الطبيب قبل الموعد بـ (دقائق)':['התראה לרופא לפני התור (דקות)','Alert doctor before appointment (minutes)'],'رمز الدولة لواتساب (بدون +)':['קידומת מדינה לוואטסאפ (ללא +)','WhatsApp country code (without +)'],
 'نص رسالة التذكير للمريض (متغيرات: {name} {clinic} {doctor} {date} {time})':['נוסח תזכורת למטופל (משתנים: {name} {clinic} {doctor} {date} {time})','Patient reminder text (variables: {name} {clinic} {doctor} {date} {time})'],
 'نص رسالة "دورك قريب"':['נוסח הודעת "תורך מתקרב"','"Your turn is near" text'],'تنبيه المريض بالمبلغ المتبقي قبل الموعد بـ (أيام)':['תזכורת יתרה למטופל לפני התור (ימים)','Balance reminder before appointment (days)'],
@@ -750,7 +757,7 @@ function startObserver(){obs=new MutationObserver(ms=>{if(lang==='ar')return;for
   obs.observe(document.body,{childList:true,subtree:true,characterData:true})}
 
 /* ---------- Init ---------- */
-(async()=>{await openDB();await loadSettings();await refreshPicker();applyLang(lang);startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
