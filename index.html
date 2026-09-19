@@ -79,6 +79,20 @@ tr:hover td{background:#f9fafb}
 .alertbox{background:#fff;border:2px solid var(--warn);border-radius:12px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,.25);animation:pop .3s}
 @keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 .tiles.small .tile .ico{font-size:1.5rem}
+.pbar{max-width:1100px;margin:14px auto 0;padding:0 16px}
+.pbar .in{background:#fff;border:2px solid var(--accent);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.pbar select{max-width:320px;flex:1;min-width:180px}
+.pbar .lbl{font-weight:700;color:var(--primary-dark);white-space:nowrap}
+.pbar.active .in{background:#ecfeff;border-color:var(--primary)}
+.pbar .who{font-weight:700;color:var(--primary-dark)}
+.folder{border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.folder>summary{cursor:pointer;padding:10px 14px;background:#f8fafc;font-weight:700;color:var(--primary-dark);list-style:none;display:flex;justify-content:space-between;align-items:center}
+.folder>summary::-webkit-details-marker{display:none}
+.folder .xrays{padding:12px}
+.xrays>.folder{grid-column:1/-1}
+.stars{display:flex;gap:4px;direction:ltr;justify-content:flex-end}
+.stars span{font-size:1.6rem;cursor:pointer;color:#d1d5db}.stars span.on{color:#f59e0b}
+.fb-item{border-bottom:1px solid var(--border);padding:8px 0}.fb-item .m{color:var(--muted);font-size:.85rem}
 .langsw{display:flex;gap:4px;background:rgba(255,255,255,.15);border-radius:8px;padding:3px}
 .langsw button{background:none;border:0;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem}
 .langsw button.active{background:#fff;color:var(--primary-dark);font-weight:700}
@@ -101,6 +115,15 @@ tr:hover td{background:#f9fafb}
   <div class="langsw"><button data-lang="ar" onclick="applyLang('ar')">العربية</button><button data-lang="he" onclick="applyLang('he')">עברית</button><button data-lang="en" onclick="applyLang('en')">English</button></div>
 </header>
 
+<div class="pbar" id="pbar">
+  <div class="in">
+    <span class="lbl">👤 المريض الحالي:</span>
+    <select id="pickPatient" onchange="setActivePatient(this.value)"><option value="">— كل المرضى (بدون تصفية) —</option></select>
+    <button class="btn small" id="pbOpen" onclick="if(activePatient)openPatient(activePatient)" style="display:none">فتح الملف</button>
+    <button class="btn secondary small" id="pbClear" onclick="setActivePatient('')" style="display:none">✕ إلغاء التحديد</button>
+    <span id="pbHint" style="color:var(--muted);font-size:.85rem">اختر مريضًا لعرض بياناته فقط في كل الأقسام</span>
+  </div>
+</div>
 <main>
 <!-- Dashboard -->
 <section id="view-dashboard" class="view active">
@@ -130,6 +153,23 @@ tr:hover td{background:#f9fafb}
       <div class="row between"><h2>آخر المرضى</h2><button class="btn small" onclick="openPatientForm()">+ مريض جديد</button></div>
       <div id="recentPatients"></div>
     </div>
+  </div>
+  <div class="card" id="contactCard">
+    <h2>💬 تواصل معنا / استمارة تحسين الخدمة</h2>
+    <p style="color:var(--muted);margin-bottom:12px">رأيك يهمنا — شاركنا ملاحظاتك أو اقتراحاتك لتحسين الخدمة، أو تواصل معنا مباشرة.</p>
+    <div class="grid grid-2">
+      <div class="field"><label>الاسم</label><input id="fbName"></div>
+      <div class="field"><label>الهاتف أو البريد</label><input id="fbContact"></div>
+      <div class="field"><label>نوع الرسالة</label><select id="fbType"><option value="suggestion">اقتراح لتحسين الخدمة</option><option value="complaint">شكوى</option><option value="praise">شكر وتقدير</option><option value="question">استفسار</option><option value="appointment">طلب موعد</option></select></div>
+      <div class="field"><label>تقييم الخدمة</label><div class="stars" id="fbStars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div></div>
+    </div>
+    <div class="field"><label>الرسالة *</label><textarea id="fbMsg" placeholder="اكتب ملاحظتك أو اقتراحك هنا..."></textarea></div>
+    <div class="row">
+      <button class="btn" onclick="sendFeedback('save')">📩 إرسال</button>
+      <button class="btn small" style="background:#25d366" onclick="sendFeedback('wa')">📲 إرسال عبر واتساب</button>
+      <button class="btn secondary small" onclick="sendFeedback('mail')">✉️ إرسال عبر البريد</button>
+    </div>
+    <div id="fbThanks" style="display:none;margin-top:10px;color:var(--ok);font-weight:700">✔ شكرًا لك! تم استلام رسالتك.</div>
   </div>
 </section>
 
@@ -243,6 +283,9 @@ tr:hover td{background:#f9fafb}
 
     <div id="tab-xray" class="tab">
       <div class="row" style="margin-bottom:14px">
+        <select id="xrayKind" style="max-width:200px">
+          <option value="xray">X-ray (بيريابيكال/عادي)</option><option value="bitewing">Bitewing</option><option value="panorama">Panorama</option><option value="ceph">Cephalometric</option><option value="cbct">CBCT</option><option value="ct">CT</option><option value="photo">صورة فوتوغرافية</option><option value="other">أخرى</option>
+        </select>
         <input type="file" id="xrayFile" accept="image/*" multiple style="max-width:300px">
         <input id="xrayNote" placeholder="وصف الصورة (اختياري)" style="max-width:260px">
         <button class="btn" onclick="addXray()">رفع الصور</button>
@@ -329,6 +372,14 @@ tr:hover td{background:#f9fafb}
     <button class="btn" onclick="saveSettings()">حفظ</button>
   </div>
   <div class="card">
+    <h2>📥 صندوق الملاحظات والاقتراحات</h2>
+    <p style="color:var(--muted);margin-bottom:8px">الرسائل المرسلة من استمارة الصفحة الرئيسية.</p>
+    <div class="grid grid-2" style="margin-bottom:10px">
+      <div class="field"><label>بريد استلام الرسائل (اختياري)</label><input id="setEmail" placeholder="clinic@example.com"></div>
+    </div>
+    <div id="fbList"></div>
+  </div>
+  <div class="card">
     <h2>النسخ الاحتياطي</h2>
     <p style="color:var(--muted);margin-bottom:12px">البيانات محفوظة داخل هذا المتصفح فقط. صدّر نسخة احتياطية بانتظام واحتفظ بها.</p>
     <div class="row">
@@ -364,12 +415,12 @@ tr:hover td{background:#f9fafb}
 
 <script>
 /* ---------- IndexedDB ---------- */
-const DB_NAME='dentalClinicDB', DB_VER=1;
-const STORES=['patients','treatments','xrays','payments','appointments','settings'];
+const DB_NAME='dentalClinicDB', DB_VER=2;
+const STORES=['patients','treatments','xrays','payments','appointments','settings','feedback'];
 let db;
 function openDB(){return new Promise((res,rej)=>{
   const r=indexedDB.open(DB_NAME,DB_VER);
-  r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s)){const st=d.createObjectStore(s,{keyPath:'id'});if(s!=='patients'&&s!=='settings')st.createIndex('patientId','patientId');}})};
+  r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s)){const st=d.createObjectStore(s,{keyPath:'id'});if(s!=='patients'&&s!=='settings'&&s!=='feedback')st.createIndex('patientId','patientId');}})};
   r.onsuccess=e=>{db=e.target.result;res()};r.onerror=()=>rej(r.error);
 })}
 const tx=(s,m='readonly')=>db.transaction(s,m).objectStore(s);
@@ -390,6 +441,17 @@ function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');set
 function closeModal(id){$(id).classList.remove('open')}
 function age(dob){if(!dob)return'';const d=new Date(dob),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n<new Date(n.getFullYear(),d.getMonth(),d.getDate()))a--;return a+' '+tr('سنة')}
 
+/* ---------- Active patient (global filter) ---------- */
+let activePatient=(()=>{try{return localStorage.getItem('activePatient')||''}catch(e){return''}})();
+const AP=()=>activePatient||'';
+const byActive=(list)=>AP()?list.filter(x=>(x.patientId||x.id)===AP()):list;
+async function refreshPicker(){const ps=(await getAll('patients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));const sel=$('pickPatient');
+  sel.innerHTML='<option value="">— كل المرضى (بدون تصفية) —</option>'+ps.map(p=>`<option value="${p.id}">${esc(p.name)}${p.fileNo?' ('+esc(p.fileNo)+')':''}</option>`).join('');sel.value=AP();
+  if(AP()&&!ps.find(p=>p.id===AP())){activePatient='';sel.value=''}
+  $('pbar').classList.toggle('active',!!AP());$('pbOpen').style.display=AP()?'':'none';$('pbClear').style.display=AP()?'':'none';$('pbHint').style.display=AP()?'none':''}
+async function setActivePatient(id,silent){activePatient=id||'';try{localStorage.setItem('activePatient',activePatient)}catch(e){}await refreshPicker();
+  if(!silent){const v=document.querySelector('.view.active');const cur=v?v.id.replace('view-',''):'dashboard';if(cur==='patient'){if(activePatient)openPatient(activePatient);else showView('patients')}else showView(cur)}}
+
 /* ---------- Navigation ---------- */
 function showView(v){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-'+v).classList.add('active');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
@@ -400,7 +462,8 @@ document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=()=>{do
 
 /* ---------- Dashboard ---------- */
 async function renderDashboard(){
-  const [ps,pays,trs,aps,xr]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments'),getAll('appointments'),getAll('xrays')]);
+  let [ps,pays,trs,aps,xr]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments'),getAll('appointments'),getAll('xrays')]);
+  await refreshPicker();ps=byActive(ps);pays=byActive(pays);trs=byActive(trs);aps=byActive(aps);xr=byActive(xr);
   const paid=pays.reduce((a,p)=>a+Number(p.amount||0),0), cost=trs.reduce((a,t)=>a+Number(t.cost||0),0);
   $('stPatients').textContent=ps.length;$('stIncome').textContent=money(paid);$('stDue').textContent=money(Math.max(cost-paid,0));
   const t=today();const todayAps=aps.filter(a=>(a.time||'').slice(0,10)===t).sort((a,b)=>a.time.localeCompare(b.time));
@@ -418,7 +481,7 @@ async function renderDashboard(){
 async function renderPatients(){
   const q=($('searchBox').value||'').trim().toLowerCase();
   const [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);
-  const list=ps.filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.phone||'').includes(q)||(p.fileNo||'').includes(q)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+  const list=byActive(ps).filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.phone||'').includes(q)||(p.fileNo||'').includes(q)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length){$('patientsTable').innerHTML='<div class="empty">لا يوجد مرضى</div>';return}
   $('patientsTable').innerHTML='<table><tr><th>رقم الملف</th><th>الاسم</th><th>الهاتف</th><th>العمر</th><th>الحالة المالية</th><th></th></tr>'+list.map(p=>{
     const c=trs.filter(t=>t.patientId===p.id).reduce((a,t)=>a+Number(t.cost||0),0),pd=pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0),due=c-pd;
@@ -432,24 +495,29 @@ async function openPatientForm(id){editingId=id||null;$('pmTitle').textContent=i
 async function savePatient(){const name=$('fName').value.trim();if(!name)return toast(tr('الاسم مطلوب'));
   const p=editingId?await get('patients',editingId):{id:uid(),createdAt:Date.now(),exam:{},teeth:[]};
   Object.assign(p,{name,phone:$('fPhone').value.trim(),dob:$('fDob').value,gender:$('fGender').value,address:$('fAddress').value.trim(),fileNo:$('fFileNo').value.trim()||p.fileNo||String(Date.now()).slice(-6),notes:$('fNotes').value.trim()});
-  await put('patients',p);closeModal('patientModal');toast(tr('تم الحفظ'));
+  await put('patients',p);closeModal('patientModal');toast(tr('تم الحفظ'));await refreshPicker();
   if(editingId&&currentId===editingId)openPatient(currentId);else showView('patients')}
 
 /* ---------- Patient detail ---------- */
 let currentId=null,currentP=null;
-async function openPatient(id){currentId=id;currentP=await get('patients',id);if(!currentP)return;
-  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-patient').classList.add('active');
+async function openPatient(id){currentId=id;currentP=await get('patients',id);if(!currentP)return;if(activePatient!==id)await setActivePatient(id,true);
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-patient').classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==='patients'));
   $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&tr('ملف:')+' '+currentP.fileNo,currentP.phone,currentP.gender,age(currentP.dob),currentP.address].filter(Boolean).join(' • ');
   const ex=currentP.exam||{};$('exMedical').value=ex.medical||'';$('exAllergy').value=ex.allergy||'';$('exComplaint').value=ex.complaint||'';$('exNotes').value=ex.notes||'';
   renderTeeth();$('trDate').value=today();$('payDate').value=today();
   await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);window.scrollTo(0,0)}
+const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometric',cbct:'CBCT',ct:'CT',photo:'صورة فوتوغرافية',other:'أخرى'};
+const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',other:'📁'};
+const XK_ORDER=Object.keys(XK);
+function xrayFolders(list,delBtn){const g={};list.forEach(x=>{const k=XK[x.kind]?x.kind:'other';(g[k]=g[k]||[]).push(x)});
+  return XK_ORDER.filter(k=>g[k]).map(k=>`<details class="folder" open><summary><span>${XK_ICON[k]} ${tr(XK[k])}</span><span class="badge ok">${g[k].length} ${tr('صورة')}</span></summary><div class="xrays">${g[k].map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)}${delBtn?` <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a>`:''}</div></div>`).join('')}</div></details>`).join('')}
 const TEETH=[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
 function renderTeeth(){const sel=new Set(currentP.teeth||[]);$('toothChart').innerHTML=TEETH.map(n=>`<div class="tooth ${sel.has(n)?'sel':''}" onclick="toggleTooth(${n})">${n}</div>`).join('')}
 function toggleTooth(n){const s=new Set(currentP.teeth||[]);s.has(n)?s.delete(n):s.add(n);currentP.teeth=[...s];renderTeeth()}
 async function saveExam(){currentP.exam={medical:$('exMedical').value,allergy:$('exAllergy').value,complaint:$('exComplaint').value,notes:$('exNotes').value};await put('patients',currentP);toast(tr('تم حفظ المعاينة'))}
 async function deletePatient(){if(!confirm(tr('حذف المريض وكل سجلاته وصوره؟')))return;
   for(const s of['treatments','xrays','payments','appointments']){const items=await byPatient(s,currentId);for(const i of items)await del(s,i.id)}
-  await del('patients',currentId);toast(tr('تم الحذف'));showView('patients')}
+  await del('patients',currentId);toast(tr('تم الحذف'));await setActivePatient('',true);showView('patients')}
 
 /* Treatments */
 async function addTreatment(){const t={id:uid(),patientId:currentId,date:$('trDate').value||today(),type:$('trType').value,tooth:$('trTooth').value.trim(),cost:Number($('trCost').value)||0,notes:$('trNotes').value.trim()};
@@ -461,10 +529,10 @@ async function delItem(s,id){if(!confirm(tr('تأكيد الحذف؟')))return;a
 /* X-rays */
 function readImg(file){return new Promise(res=>{const img=new Image(),r=new FileReader();r.onload=()=>{img.onload=()=>{const max=1600,sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.85))};img.src=r.result};r.readAsDataURL(file)})}
 async function addXray(){const files=[...$('xrayFile').files];if(!files.length)return toast(tr('اختر صورة أولًا'));
-  for(const f of files){const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),note:$('xrayNote').value.trim(),data})}
+  for(const f of files){const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:$('xrayKind').value,note:$('xrayNote').value.trim(),data})}
   $('xrayFile').value='';$('xrayNote').value='';toast(tr('تم رفع')+' '+files.length+' '+tr('صورة'));renderXrays()}
 async function renderXrays(){const l=(await byPatient('xrays',currentId)).sort((a,b)=>b.id.localeCompare(a.id));
-  $('xrayList').innerHTML=l.length?l.map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)} <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">حذف</a></div></div>`).join(''):'<div class="empty">لا توجد صور أشعة</div>'}
+  $('xrayList').innerHTML=l.length?xrayFolders(l,true):'<div class="empty">لا توجد صور أشعة</div>'}
 
 /* Payments */
 async function addPayment(){const a=Number($('payAmount').value);if(!a)return toast(tr('أدخل المبلغ'));
@@ -477,8 +545,8 @@ async function renderPayments(){const [pays,trs]=await Promise.all([byPatient('p
   $('payList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظة</th><th></th></tr>'+l.map(p=>`<tr><td>${p.date}</td><td class="money pos">${money(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td><td><button class="btn danger small" onclick="delItem('payments','${p.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد دفعات</div>'}
 
 /* ---------- Appointments ---------- */
-async function renderAppointments(){const [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);updateNotifStatus();renderDueReminders();
-  $('apPatient').innerHTML=ps.sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';
+async function renderAppointments(){let [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);aps=byActive(aps);updateNotifStatus();renderDueReminders();
+  $('apPatient').innerHTML=byActive(ps).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';if(AP())$('apPatient').value=AP();
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const t=today();
   let l=aps.filter(a=>apMode==='today'?a.time.slice(0,10)===t:apMode==='upcoming'?a.time.slice(0,10)>t:a.time.slice(0,10)<t);
   l.sort((a,b)=>apMode==='past'?b.time.localeCompare(a.time):a.time.localeCompare(b.time));
@@ -501,7 +569,7 @@ async function waRemind(id,kind){const a=await get('appointments',id);const p=aw
   if(kind==='due')a.dueReminded=true;else a.reminded=true;await put('appointments',a);renderAppointments()}
 
 /* ---------- Balance reminders before appointment ---------- */
-async function renderDueReminders(){const [aps,ps,trs,pays]=await Promise.all([getAll('appointments'),getAll('patients'),getAll('treatments'),getAll('payments')]);
+async function renderDueReminders(){let [aps,ps,trs,pays]=await Promise.all([getAll('appointments'),getAll('patients'),getAll('treatments'),getAll('payments')]);aps=byActive(aps);
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const now=Date.now(),days=Number(settings.dueDays)||1;
   const rows=aps.filter(a=>{const t=new Date(a.time).getTime();return t>now&&t-now<=days*86400000+86400000&&!['declined','arrived','noshow'].includes(a.status)}).map(a=>{const c=trs.filter(x=>x.patientId===a.patientId).reduce((s,x)=>s+Number(x.cost||0),0),pd=pays.filter(x=>x.patientId===a.patientId).reduce((s,x)=>s+Number(x.amount||0),0);return{a,p:pm[a.patientId]||{},due:c-pd}}).filter(r=>r.due>0).sort((x,y)=>x.a.time.localeCompare(y.a.time));
   const el=$('dueReminders');if(!el)return;
@@ -525,7 +593,7 @@ function apTab(m,btn){apMode=m;btn.parentElement.querySelectorAll('button').forE
 /* ---------- Global: Treatments by category ---------- */
 const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':'🩺','خلع':'🔧','تركيبات (تاج/جسر)':'👑','زراعة':'🌱','تقويم':'📐','تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
 async function renderTreatmentsView(cat){
-  const [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  let [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);trs=byActive(trs);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const cats=[...$('trType').options].map(o=>o.value);
   $('treatCats').innerHTML=cats.map(c=>{const l=trs.filter(t=>t.type===c);const sum=l.reduce((a,t)=>a+Number(t.cost||0),0);
     return `<div class="tile" onclick="renderTreatmentsView('${c}')"><div class="ico">${TREAT_ICONS[c]||'📋'}</div><div class="t">${tr(c)}</div><div class="d">${l.length} ${tr('إجراء')} • ${money(sum)}</div></div>`}).join('');
@@ -538,17 +606,17 @@ async function renderTreatmentsView(cat){
 /* ---------- Global: X-ray archive ---------- */
 async function renderXraysView(){
   const [xr,ps]=await Promise.all([getAll('xrays'),getAll('patients')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
-  const sel=$('xrayFilter');const cur=sel.value;sel.innerHTML='<option value="">كل المرضى</option>'+ps.sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');sel.value=cur;
+  const sel=$('xrayFilter');const cur=AP()||sel.value;sel.innerHTML='<option value="">كل المرضى</option>'+byActive(ps).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');sel.value=cur;
   const l=xr.filter(x=>!cur||x.patientId===cur).sort((a,b)=>b.id.localeCompare(a.id));
   if(!l.length){$('xrayArchive').innerHTML='<div class="card empty">لا توجد صور أشعة</div>';return}
   const groups={};l.forEach(x=>{(groups[x.patientId]=groups[x.patientId]||[]).push(x)});
-  $('xrayArchive').innerHTML=Object.entries(groups).map(([pid,imgs])=>`<div class="card"><div class="row between"><h2>${esc(pm[pid]?.name||'—')} <span class="badge ok">${imgs.length} ${tr('صورة')}</span></h2><button class="btn small" onclick="openPatient('${pid}')">فتح الملف</button></div><div class="xrays">${imgs.map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)}</div></div>`).join('')}</div></div>`).join('')}
+  $('xrayArchive').innerHTML=Object.entries(groups).map(([pid,imgs])=>`<div class="card"><div class="row between"><h2>${esc(pm[pid]?.name||'—')} <span class="badge ok">${imgs.length} ${tr('صورة')}</span></h2><button class="btn small" onclick="openPatient('${pid}')">فتح الملف</button></div>${xrayFolders(imgs,false)}</div>`).join('')}
 
 /* ---------- Global: Payments ---------- */
 let payMode='due';
 function payTab(m,btn){payMode=m;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));document.querySelectorAll('.ptab').forEach(x=>x.style.display='none');$('ptab-'+m).style.display='block';renderPaymentsView()}
 async function renderPaymentsView(){
-  const [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  let [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);ps=byActive(ps);pays=byActive(pays);trs=byActive(trs);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const cost=trs.reduce((a,t)=>a+Number(t.cost||0),0),paid=pays.reduce((a,p)=>a+Number(p.amount||0),0),t=today();
   $('gpCost').textContent=money(cost);$('gpPaid').textContent=money(paid);$('gpDue').textContent=money(Math.max(cost-paid,0));$('gpToday').textContent=money(pays.filter(p=>p.date===t).reduce((a,p)=>a+Number(p.amount||0),0));
   const rows=ps.map(p=>{const c=trs.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.cost||0),0),pd=pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0);return{p,c,pd,due:c-pd}}).filter(r=>r.due>0).sort((a,b)=>b.due-a.due);
@@ -562,6 +630,22 @@ async function addAppointment(){const pid=$('apPatient').value,t=$('apTime').val
   await put('appointments',{id:uid(),patientId:pid,time:t,reason:$('apReason').value.trim()});$('apReason').value='';toast(tr('تم حفظ الموعد'));renderAppointments()}
 async function delAp(id){await del('appointments',id);renderAppointments()}
 
+/* ---------- Feedback / contact ---------- */
+let fbRating=0;
+document.querySelectorAll('#fbStars span').forEach(sp=>sp.onclick=()=>{fbRating=Number(sp.dataset.v);document.querySelectorAll('#fbStars span').forEach(x=>x.classList.toggle('on',Number(x.dataset.v)<=fbRating))});
+const FB_TYPES={suggestion:'اقتراح لتحسين الخدمة',complaint:'شكوى',praise:'شكر وتقدير',question:'استفسار',appointment:'طلب موعد'};
+async function sendFeedback(how){const msg=$('fbMsg').value.trim();if(!msg)return toast(tr('اكتب رسالتك أولًا'));
+  const fb={id:uid(),date:new Date().toISOString().slice(0,16).replace('T',' '),name:$('fbName').value.trim(),contact:$('fbContact').value.trim(),type:$('fbType').value,rating:fbRating,msg};
+  await put('feedback',fb);
+  const text=`${tr(FB_TYPES[fb.type])}${fb.rating?' — '+'★'.repeat(fb.rating):''}\n${fb.name?tr('الاسم')+': '+fb.name+'\n':''}${fb.contact?tr('الهاتف')+': '+fb.contact+'\n':''}\n${fb.msg}`;
+  if(how==='wa'){const ph=waPhone(settings.phone);if(!ph)toast(tr('لم يُضبط رقم هاتف العيادة في الإعدادات'));else window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(text),'_blank')}
+  if(how==='mail'){if(!settings.email)toast(tr('لم يُضبط بريد العيادة في الإعدادات'));else window.open('mailto:'+settings.email+'?subject='+encodeURIComponent(tr(settings.name)+' — '+tr(FB_TYPES[fb.type]))+'&body='+encodeURIComponent(text))}
+  $('fbMsg').value='';$('fbName').value='';$('fbContact').value='';fbRating=0;document.querySelectorAll('#fbStars span').forEach(x=>x.classList.remove('on'));
+  $('fbThanks').style.display='';setTimeout(()=>$('fbThanks').style.display='none',4000);toast(tr('تم الإرسال'))}
+async function renderFeedback(){const l=(await getAll('feedback')).sort((a,b)=>b.date.localeCompare(a.date));
+  $('fbList').innerHTML=l.length?l.map(f=>`<div class="fb-item"><div class="row between"><b>${tr(FB_TYPES[f.type]||f.type)} ${f.rating?'<span style="color:#f59e0b">'+'★'.repeat(f.rating)+'</span>':''}</b><span class="m">${f.date}</span></div><div>${esc(f.msg)}</div><div class="m">${esc(f.name||'')} ${esc(f.contact||'')} <a href="#" style="color:var(--danger)" onclick="delFb('${f.id}');return false">${tr('حذف')}</a></div></div>`).join(''):'<div class="empty" style="padding:10px">لا توجد رسائل بعد</div>'}
+async function delFb(id){await del('feedback',id);renderFeedback()}
+
 /* ---------- Settings & backup ---------- */
 async function loadSettings(){const s=await get('settings','main');if(s)settings={...settings,...s};$('clinicTitle').textContent='🦷 '+tr(settings.name);document.title=tr(settings.name)}
 const DEFS={
@@ -571,10 +655,10 @@ const DEFS={
  turn:{ar:'مرحبًا {name}، دورك في {clinic} قريب جدًا 🦷\nالرجاء التوجه إلى العيادة الآن.',he:'שלום {name}, תורך ב{clinic} מתקרב 🦷\nאנא הגע/י למרפאה עכשיו.',en:'Hello {name}, your turn at {clinic} is coming up 🦷\nPlease head to the clinic now.'},
  due:{ar:'مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\n💳 المبلغ المتبقي عليك: {due}\nيرجى تجهيزه قبل الموعد. شكرًا 🙏',he:'שלום {name} 👋\nתזכורת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\n💳 היתרה לתשלום: {due}\nאנא הכן/י אותה לפני התור. תודה 🙏',en:'Hello {name} 👋\nReminder of your appointment at {clinic}{doctor} on {date} at {time}.\n💳 Your remaining balance: {due}\nPlease have it ready before the appointment. Thank you 🙏'}};
 const DEF=k=>DEFS[k][lang]||DEFS[k].ar;const isDef=(k,v)=>Object.values(DEFS[k]).includes(v);
-function loadSettingsForm(){$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
+function loadSettingsForm(){renderFeedback();$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
   $('setRemindMin').value=settings.remindMin||30;$('setCountry').value=settings.country||'972';$('setMsgRemind').value=settings.msgRemind||DEF('remind');$('setMsgTurn').value=settings.msgTurn||DEF('turn');
   $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF('due')}
-async function saveSettings(){settings={id:'main',name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
+async function saveSettings(){settings={id:'main',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
   remindMin:Number($('setRemindMin').value)||30,country:$('setCountry').value.trim()||'972',msgRemind:isDef('remind',$('setMsgRemind').value.trim())?'':$('setMsgRemind').value.trim(),msgTurn:isDef('turn',$('setMsgTurn').value.trim())?'':$('setMsgTurn').value.trim(),
   dueDays:Number($('setDueDays').value)||1,msgDue:isDef('due',$('setMsgDue').value.trim())?'':$('setMsgDue').value.trim()};await put('settings',settings);await loadSettings();updateNotifStatus();toast(tr('تم الحفظ'))}
 async function exportData(){const out={};for(const s of STORES)out[s]=await getAll(s);const b=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dental-backup-'+today()+'.json';a.click();toast(tr('تم التصدير'))}
@@ -635,7 +719,15 @@ const L={
 '🔔 موعد قريب':['🔔 תור קרוב','🔔 Upcoming appointment'],'موعد':['תור של','Appointment:'],'الساعة':['בשעה','at'],'💳 تذكير بالمستحقات':['💳 תזכורת יתרות','💳 Balance reminders'],
 'مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.':['מטופלים עם תור קרוב ויתרה לתשלום — שלח להם תזכורת מעמוד התורים.','patient(s) have an upcoming appointment and an outstanding balance — send them a reminder from the Appointments page.'],
 'إجراء':['טיפולים ','procedures'],'صورة':['צילומים','images'],'مستحق':['עם יתרה','due'],'ملف:':['תיק:','File:'],'سنة':['שנים','yrs'],'مع':['עם','with'],'تم رفع':['הועלו','Uploaded'],
-'اللغة':['שפה','Language'],'اختر لغة الواجهة':['בחר שפת ממשק','Choose interface language'],
+'اللغة':['שפה','Language'],
+'المريض الحالي:':['מטופל נוכחי:','Current patient:'],'— كل المرضى (بدون تصفية) —':['— כל המטופלים (ללא סינון) —','— All patients (no filter) —'],'✕ إلغاء التحديد':['✕ בטל בחירה','✕ Clear selection'],
+'اختر مريضًا لعرض بياناته فقط في كل الأقسام':['בחר מטופל כדי להציג רק את הנתונים שלו בכל המדורים','Select a patient to show only their data in every section'],
+'X-ray (بيريابيكال/عادي)':['X-ray (פריאפיקלי/רגיל)','X-ray (periapical/standard)'],'صورة فوتوغرافية':['תמונה','Photo'],'نوع التصوير':['סוג צילום','Imaging type'],
+'تواصل معنا / استمارة تحسين الخدمة':['צור קשר / טופס שיפור השירות','Contact us / service improvement form'],'رأيك يهمنا — شاركنا ملاحظاتك أو اقتراحاتك لتحسين الخدمة، أو تواصل معنا مباشرة.':['דעתך חשובה לנו — שתף הערות או הצעות לשיפור השירות, או צור קשר ישירות.','Your opinion matters — share feedback or suggestions to improve our service, or contact us directly.'],
+'الهاتف أو البريد':['טלפון או אימייל','Phone or email'],'نوع الرسالة':['סוג ההודעה','Message type'],'اقتراح لتحسين الخدمة':['הצעה לשיפור השירות','Service improvement suggestion'],'شكوى':['תלונה','Complaint'],'شكر وتقدير':['תודה והערכה','Thanks & appreciation'],'استفسار':['שאלה','Question'],'طلب موعد':['בקשת תור','Appointment request'],
+'تقييم الخدمة':['דירוג השירות','Service rating'],'الرسالة *':['הודעה *','Message *'],'اكتب ملاحظتك أو اقتراحك هنا...':['כתוב כאן את ההערה או ההצעה שלך...','Write your feedback or suggestion here...'],'📩 إرسال':['📩 שלח','📩 Send'],'📲 إرسال عبر واتساب':['📲 שלח בוואטסאפ','📲 Send via WhatsApp'],'✉️ إرسال عبر البريد':['✉️ שלח באימייל','✉️ Send by email'],
+'✔ شكرًا لك! تم استلام رسالتك.':['✔ תודה! ההודעה התקבלה.','✔ Thank you! Your message was received.'],'اكتب رسالتك أولًا':['כתוב הודעה תחילה','Write a message first'],'تم الإرسال':['נשלח','Sent'],'لم يُضبط رقم هاتف العيادة في الإعدادات':['לא הוגדר טלפון המרפאה בהגדרות','Clinic phone is not set in Settings'],'لم يُضبط بريد العيادة في الإعدادات':['לא הוגדר אימייל המרפאה בהגדרות','Clinic email is not set in Settings'],
+'صندوق الملاحظات والاقتراحات':['תיבת הערות והצעות','Feedback inbox'],'الرسائل المرسلة من استمارة الصفحة الرئيسية.':['הודעות שנשלחו מטופס עמוד הבית.','Messages sent from the home page form.'],'بريد استلام الرسائل (اختياري)':['אימייל לקבלת הודעות (אופציונלי)','Email for receiving messages (optional)'],'لا توجد رسائل بعد':['אין הודעות עדיין','No messages yet'],'اختر لغة الواجهة':['בחר שפת ממשק','Choose interface language'],
 };
 (()=>{const strip=x=>{let i=0;while(i<x.length&&!/[\p{L}\p{N}]/u.test(x[i]))i++;return x.slice(i)};for(const [k,v] of Object.entries(L)){const ks=strip(k);if(ks!==k&&!L[ks])L[ks]=[strip(v[0]),strip(v[1])]}})();
 function tr(s){if(!L[s])return s;if(lang==='ar')return s;return L[s][lang==='he'?0:1]}
@@ -658,7 +750,7 @@ function startObserver(){obs=new MutationObserver(ms=>{if(lang==='ar')return;for
   obs.observe(document.body,{childList:true,subtree:true,characterData:true})}
 
 /* ---------- Init ---------- */
-(async()=>{await openDB();await loadSettings();applyLang(lang);startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{await openDB();await loadSettings();await refreshPicker();applyLang(lang);startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
