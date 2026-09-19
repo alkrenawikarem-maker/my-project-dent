@@ -106,10 +106,49 @@ tr:hover td{background:#f9fafb}
 .langsw button{background:none;border:0;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem}
 .langsw button.active{background:#fff;color:var(--primary-dark);font-weight:700}
 .langcard .langsw{background:#f1f5f9}.langcard .langsw button{color:var(--text);font-size:1rem;padding:8px 18px}.langcard .langsw button.active{background:var(--primary);color:#fff}
+.login{position:fixed;inset:0;z-index:100;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;padding:16px}
+.login.hide{display:none}
+.login .lbox{background:#fff;border-radius:16px;padding:28px 26px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:pop .3s}
+.login .logo{font-size:3rem;text-align:center}
+.login h2{text-align:center;margin-bottom:4px}
+.login .sub{text-align:center;color:var(--muted);font-size:.9rem;margin-bottom:16px}
+.login .err{color:var(--danger);font-size:.9rem;min-height:1.3em;margin:6px 0}
+.login .btn{width:100%;padding:12px;font-size:1.05rem;margin-top:6px}
+.login .langsw{background:#f1f5f9;justify-content:center;margin-top:14px}.login .langsw button{color:var(--text)}.login .langsw button.active{background:var(--primary);color:#fff}
+.login .lbox.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.who{display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.15);border-radius:8px;padding:4px 8px;color:#fff;font-size:.85rem}
+.who button{background:rgba(255,255,255,.9);color:var(--danger);border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;font-weight:700}
+.role{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
+.role.doctor{background:#e0f2fe;color:var(--primary-dark)}.role.reception{background:#fef3c7;color:#b45309}
 @media(max-width:600px){header{padding:12px}main{padding:0 10px}.tooth-grid{grid-template-columns:repeat(8,1fr)}}
 </style>
 </head>
 <body>
+<div class="login" id="loginScreen">
+  <div class="lbox" id="loginBox">
+    <div class="logo">🦷</div>
+    <h2 id="loginTitle">تسجيل الدخول</h2>
+    <div class="sub" id="loginSub">أدخل اسم المستخدم وكلمة المرور للدخول إلى النظام</div>
+    <div class="field"><label>اسم المستخدم</label><input id="lgUser" autocomplete="username"></div>
+    <div class="field"><label>كلمة المرور</label><input type="password" id="lgPass" autocomplete="current-password"></div>
+    <div class="field" id="lgCodeBox" style="display:none"><label>رمز الاسترجاع</label><input id="lgCode" style="direction:ltr;letter-spacing:3px" autocomplete="one-time-code"></div>
+    <div class="field" id="lgConfirmBox" style="display:none"><label>تأكيد كلمة المرور</label><input type="password" id="lgPass2" autocomplete="new-password"></div>
+    <label id="lgRememberBox" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="lgRemember" style="width:auto"> <span>تذكرني على هذا الجهاز</span></label>
+    <div class="err" id="lgErr"></div>
+    <button class="btn" id="lgBtn" onclick="doAuth()">دخول</button>
+    <div style="text-align:center;margin-top:10px;font-size:.9rem"><a href="#" id="lgForgot" onclick="authMode('recover');return false">نسيت كلمة المرور؟</a><a href="#" id="lgBack" style="display:none" onclick="authMode('login');return false">← العودة لتسجيل الدخول</a></div>
+    <div id="lgCodeShow" style="display:none" class="locked-box">
+      <div>رمز الاسترجاع لحسابك (يظهر مرة واحدة — احفظه أو أرسله لنفسك الآن):</div>
+      <div id="lgCodeVal" style="font-size:1.8rem;font-weight:700;letter-spacing:4px;direction:ltr;margin:8px 0"></div>
+      <div class="field"><input id="lgRecEmail" placeholder="بريد الطبيب (للاسترجاع)"></div>
+      <div class="field"><input id="lgRecPhone" placeholder="هاتف الطبيب (واتساب)"></div>
+      <div class="row" style="justify-content:center"><button class="btn small" style="background:#25d366" onclick="sendRecovery('wa')">📲 واتساب</button><button class="btn small" onclick="sendRecovery('mail')">✉️ بريد</button></div>
+      <button class="btn small secondary" style="margin-top:10px" onclick="enterApp()">حفظته — الدخول إلى النظام</button>
+    </div>
+    <div class="langsw"><button data-lang="ar" onclick="applyLang('ar')">العربية</button><button data-lang="he" onclick="applyLang('he')">עברית</button><button data-lang="en" onclick="applyLang('en')">English</button></div>
+  </div>
+</div>
 <header>
   <h1 id="clinicTitle">🦷 عيادة الأسنان</h1>
   <nav>
@@ -123,6 +162,7 @@ tr:hover td{background:#f9fafb}
   </nav>
   <div class="langsw"><button data-lang="ar" onclick="applyLang('ar')">العربية</button><button data-lang="he" onclick="applyLang('he')">עברית</button><button data-lang="en" onclick="applyLang('en')">English</button></div>
   <div class="lock" id="lockBox"><span id="lockState">🔒 وضع الاستقبال</span><button id="lockBtn" onclick="toggleLock()">دخول الطبيب</button></div>
+  <div class="who" id="whoBox" style="display:none"><span id="whoName"></span><button onclick="logout()">خروج</button></div>
 </header>
 
 <div class="pbar" id="pbar">
@@ -371,7 +411,40 @@ tr:hover td{background:#f9fafb}
     </div>
     <button class="btn" onclick="saveSettings()">حفظ</button>
   </div>
-  <div class="card">
+  <div class="card doc-only">
+    <h2>👥 المستخدمون وتسجيل الدخول</h2>
+    <p style="color:var(--muted);margin-bottom:10px">لا يمكن فتح النظام إلا بحساب مستخدم. حساب "طبيب" يرى كل شيء، وحساب "استقبال" يرى المواعيد والدفعات وبيانات الاتصال فقط.</p>
+    <div id="usersList"></div>
+    <h3>إضافة مستخدم</h3>
+    <div class="grid grid-2">
+      <div class="field"><label>اسم المستخدم</label><input id="nuUser" autocomplete="off"></div>
+      <div class="field"><label>كلمة المرور (6 أحرف أو أكثر)</label><input type="password" id="nuPass" autocomplete="new-password"></div>
+      <div class="field"><label>الصلاحية</label><select id="nuRole"><option value="reception">استقبال</option><option value="doctor">طبيب</option></select></div>
+    </div>
+    <button class="btn" onclick="addUser()">إضافة المستخدم</button>
+  </div>
+  <div class="card doc-only">
+    <h2>🔑 استرجاع كلمة المرور</h2>
+    <p style="color:var(--muted);margin-bottom:10px">إذا نُسيت كلمة المرور يمكن إعادة تعيينها من شاشة الدخول باستخدام رمز الاسترجاع. ولّد الرمز وأرسله إلى بريد الطبيب أو هاتفه واحتفظ به في مكان آمن.</p>
+    <div class="grid grid-2">
+      <div class="field"><label>بريد الطبيب للاسترجاع</label><input id="setRecEmail" placeholder="doctor@example.com"></div>
+      <div class="field"><label>هاتف الطبيب للاسترجاع (واتساب)</label><input id="setRecPhone" placeholder="05xxxxxxxx"></div>
+    </div>
+    <div class="row">
+      <button class="btn secondary" onclick="saveRecovery()">حفظ بيانات الاسترجاع</button>
+      <button class="btn" onclick="genRecovery()">🔑 توليد رمز استرجاع جديد</button>
+      <span id="recState" style="color:var(--muted)"></span>
+    </div>
+    <div id="recCodeBox" style="display:none;margin-top:12px" class="locked-box">
+      <div>رمز الاسترجاع (يظهر مرة واحدة فقط — احفظه الآن):</div>
+      <div id="recCode" style="font-size:1.8rem;font-weight:700;letter-spacing:4px;direction:ltr;margin:8px 0"></div>
+      <div class="row" style="justify-content:center">
+        <button class="btn small" style="background:#25d366" onclick="sendRecovery('wa')">📲 إرسال إلى هاتف الطبيب</button>
+        <button class="btn small" onclick="sendRecovery('mail')">✉️ إرسال إلى بريد الطبيب</button>
+      </div>
+    </div>
+  </div>
+  <div class="card doc-only">
     <h2>🔐 حماية البيانات الطبية (الطبيب فقط)</h2>
     <p style="color:var(--muted);margin-bottom:10px">عند تفعيل الرمز السري تُخفى المعاينة والتشخيص وأقسام العلاج وصور الأشعة والتحليل الذكي عن موظفي الاستقبال، وتبقى المواعيد والدفعات وبيانات الاتصال متاحة.</p>
     <div class="grid grid-2">
@@ -381,7 +454,7 @@ tr:hover td{background:#f9fafb}
     <button class="btn" onclick="savePin()">حفظ الرمز</button>
     <span id="pinState" style="margin-inline-start:10px;color:var(--muted)"></span>
   </div>
-  <div class="card">
+  <div class="card doc-only">
     <h2>🤖 الذكاء الاصطناعي (Anthropic Claude)</h2>
     <p style="color:var(--muted);margin-bottom:10px">يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. المفتاح يُحفظ في هذا المتصفح فقط.</p>
     <div class="grid grid-2">
@@ -672,14 +745,16 @@ async function delAp(id){await del('appointments',id);renderAppointments()}
 /* ---------- Doctor lock ---------- */
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 let unlocked=(()=>{try{return sessionStorage.getItem('docUnlocked')==='1'}catch(e){return false}})();
-const isLocked=()=>!!settings.pinHash&&!unlocked;
+const isLocked=()=>!unlocked&&(!!settings.pinHash||!!(curUser&&curUser.role!=='doctor'));
 let lastAct=Date.now();['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
 setInterval(()=>{if(settings.pinHash&&unlocked&&Date.now()-lastAct>(Number(settings.lockMin)||15)*60000){unlocked=false;try{sessionStorage.removeItem('docUnlocked')}catch(e){}applyLock();toast(tr('تم القفل تلقائيًا'))}},30000);
-async function toggleLock(){if(!settings.pinHash){showView('settings');toast(tr('اضبط الرمز السري للطبيب أولًا'));return}
+async function toggleLock(){
   if(unlocked){unlocked=false;try{sessionStorage.removeItem('docUnlocked')}catch(e){}applyLock();return}
+  if(!settings.pinHash){if(curUser&&curUser.role==='doctor'){const p=prompt(tr('أدخل كلمة مرور حسابك'));if(p===null)return;if(await uhash(curUser.u,p)===curUser.h){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}applyLock();toast(tr('مرحبًا دكتور'))}else toast(tr('رمز غير صحيح'));return}
+    toast(tr('هذا القسم للطبيب فقط — سجّل الدخول بحساب طبيب'));return}
   const p=prompt(tr('أدخل الرمز السري للطبيب'));if(p===null)return;if(await sha(p)===settings.pinHash){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}applyLock();toast(tr('مرحبًا دكتور'))}else toast(tr('رمز غير صحيح'))}
-function applyLock(){const L_=isLocked();const has=!!settings.pinHash;
-  $('lockBox').style.display=has?'':'none';$('lockState').textContent=L_?'🔒 '+tr('وضع الاستقبال'):'🔓 '+tr('وضع الطبيب');$('lockBtn').textContent=L_?tr('دخول الطبيب'):tr('قفل');
+function applyLock(){const L_=isLocked();const has=!!settings.pinHash||!!curUser;
+  $('lockBox').style.display=has?'':'none';document.querySelectorAll('.doc-only').forEach(c=>c.style.display=L_?'none':'');$('lockState').textContent=L_?'🔒 '+tr('وضع الاستقبال'):'🔓 '+tr('وضع الطبيب');$('lockBtn').textContent=L_?tr('دخول الطبيب'):tr('قفل');
   document.querySelectorAll('nav button[data-view=treatments],nav button[data-view=xrays]').forEach(b=>b.style.display=L_?'none':'');
   document.querySelectorAll('.tile[onclick*=treatments],.tile[onclick*=xrays]').forEach(b=>b.style.display=L_?'none':'');
   document.querySelectorAll('.tabs button[data-tab=exam],.tabs button[data-tab=treat],.tabs button[data-tab=xray]').forEach(b=>b.style.display=L_?'none':'');
@@ -692,6 +767,67 @@ async function savePin(){const v=$('setPin').value.trim();if(v&&v.length<4)retur
   settings.pinHash=v?await sha(v):'';settings.lockMin=Number($('setLockMin').value)||15;await put('settings',{...settings,id:'main'});$('setPin').value='';
   if(v){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}}applyLock();toast(tr('تم الحفظ'))}
 const lockedHtml=()=>`<div class="locked-box">🔒 ${tr('هذه البيانات الطبية متاحة للطبيب فقط')}<br><button class="btn small" style="margin-top:8px" onclick="toggleLock()">${tr('دخول الطبيب')}</button></div>`;
+
+/* ---------- Login / users / recovery ---------- */
+let curUser=null,authModeV='login',authResolve=null,failCount=0,lockUntil=0,pendingRecCode='';
+const users=()=>settings.users||[];
+const uhash=(u,p)=>sha(u.trim().toLowerCase()+'|'+p);
+const findUser=u=>users().find(x=>x.u.toLowerCase()===u.trim().toLowerCase());
+function authMode(m){authModeV=m;const setup=m==='setup',rec=m==='recover';
+  $('lgErr').textContent='';$('lgPass').value='';$('lgPass2').value='';$('lgCode').value='';
+  $('loginTitle').textContent=setup?tr('إنشاء حساب الطبيب'):rec?tr('استرجاع كلمة المرور'):tr('تسجيل الدخول');
+  $('loginSub').textContent=setup?tr('هذا أول تشغيل للنظام — أنشئ حساب الطبيب (المدير) للدخول'):rec?recHint():tr('أدخل اسم المستخدم وكلمة المرور للدخول إلى النظام');
+  $('lgConfirmBox').style.display=(setup||rec)?'':'none';$('lgCodeBox').style.display=rec?'':'none';$('lgRememberBox').style.display=(setup||rec)?'none':'';
+  $('lgBtn').textContent=setup?tr('إنشاء الحساب والدخول'):rec?tr('إعادة تعيين كلمة المرور'):tr('دخول');
+  $('lgForgot').style.display=(m==='login'&&users().length)?'':'none';$('lgBack').style.display=rec?'':'none';$('lgCodeShow').style.display='none';$('lgBtn').style.display='';
+  document.querySelector('#lgPass').previousElementSibling.textContent=rec?tr('كلمة المرور الجديدة'):tr('كلمة المرور');
+  setTimeout(()=>$('lgUser').focus(),50)}
+function maskMail(e){if(!e)return'';const [a,b]=e.split('@');return (a||'').slice(0,1)+'***@'+(b||'')}
+function maskPhone(p){if(!p)return'';const d=String(p).replace(/\D/g,'');return d.slice(0,2)+'*****'+d.slice(-3)}
+function recHint(){const t=[settings.recEmail&&maskMail(settings.recEmail),settings.recPhone&&maskPhone(settings.recPhone)].filter(Boolean).join(' / ');
+  if(!settings.recoveryHash)return tr('لم يُعدّ رمز استرجاع لهذا النظام. تواصل مع الطبيب أو استعد نسخة احتياطية.');
+  return tr('أدخل رمز الاسترجاع الذي أرسله الطبيب إلى')+(t?' '+t:' '+tr('بريده/هاتفه'))+' '+tr('ثم اختر كلمة مرور جديدة.')}
+function showLogin(){$('loginScreen').classList.remove('hide');document.body.style.overflow='hidden';authMode(users().length?'login':'setup')}
+function authGate(){return new Promise(res=>{authResolve=res;
+  let saved='';try{saved=sessionStorage.getItem('authUser')||localStorage.getItem('authUser')||''}catch(e){}
+  const u=saved&&findUser(saved);if(u&&users().length){finishLogin(u,false,true);return}
+  showLogin()})}
+function lgFail(msg){$('lgErr').textContent=msg;const b=$('loginBox');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake')}
+async function doAuth(){const u=$('lgUser').value.trim(),p=$('lgPass').value,p2=$('lgPass2').value;
+  if(authModeV==='setup'){if(u.length<3)return lgFail(tr('اسم المستخدم 3 أحرف على الأقل'));if(p.length<6)return lgFail(tr('كلمة المرور 6 أحرف على الأقل'));if(p!==p2)return lgFail(tr('كلمتا المرور غير متطابقتين'));
+    const user={u,h:await uhash(u,p),role:'doctor',created:Date.now()};settings.users=[user];pendingRecCode=genCode();settings.recoveryHash=await sha(pendingRecCode.replace(/-/g,''));
+    await put('settings',{...settings,id:'main'});$('lgBtn').style.display='none';$('lgForgot').style.display='none';$('lgCodeVal').textContent=pendingRecCode;$('lgCodeShow').style.display='';curUser=user;try{sessionStorage.setItem('authUser',u)}catch(e){}return}
+  if(authModeV==='recover'){const user=findUser(u);if(!user)return lgFail(tr('اسم المستخدم غير موجود'));if(!settings.recoveryHash)return lgFail(tr('لا يوجد رمز استرجاع مُعدّ'));
+    const code=$('lgCode').value.replace(/\s|-/g,'').toUpperCase();if(await sha(code)!==settings.recoveryHash)return lgFail(tr('رمز الاسترجاع غير صحيح'));
+    if(p.length<6)return lgFail(tr('كلمة المرور 6 أحرف على الأقل'));if(p!==p2)return lgFail(tr('كلمتا المرور غير متطابقتين'));
+    user.h=await uhash(user.u,p);settings.recoveryHash='';await put('settings',{...settings,id:'main'});toast(tr('تم تغيير كلمة المرور — ولّد رمز استرجاع جديدًا من الإعدادات'));finishLogin(user,false);return}
+  if(Date.now()<lockUntil)return lgFail(tr('محاولات كثيرة — انتظر')+' '+Math.ceil((lockUntil-Date.now())/1000)+' '+tr('ثانية'));
+  const user=findUser(u);if(!user||await uhash(user.u,p)!==user.h){failCount++;if(failCount>=5){lockUntil=Date.now()+30000;failCount=0}return lgFail(tr('اسم المستخدم أو كلمة المرور غير صحيحة'))}
+  failCount=0;finishLogin(user,$('lgRemember').checked)}
+function enterApp(){if(curUser)finishLogin(curUser,false)}
+function finishLogin(user,remember,silent){curUser=user;try{sessionStorage.setItem('authUser',user.u);if(remember)localStorage.setItem('authUser',user.u)}catch(e){}
+  $('loginScreen').classList.add('hide');document.body.style.overflow='';
+  if(user.role==='doctor'){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}}else{unlocked=false;try{sessionStorage.removeItem('docUnlocked')}catch(e){}}
+  $('whoBox').style.display='';$('whoName').textContent='👤 '+user.u+' ('+tr(user.role==='doctor'?'طبيب':'استقبال')+')';
+  if(authResolve){const r=authResolve;authResolve=null;r()}else{applyLock();showView('dashboard')}
+  if(!silent)toast(tr('مرحبًا')+' '+user.u)}
+function logout(){try{sessionStorage.removeItem('authUser');localStorage.removeItem('authUser');sessionStorage.removeItem('docUnlocked')}catch(e){}location.reload()}
+$('loginScreen').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if($('lgBtn').style.display!=='none')doAuth()}});
+function genCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const b=crypto.getRandomValues(new Uint8Array(8));return [...b].map(x=>a[x%a.length]).join('').replace(/(.{4})(.{4})/,'$1-$2')}
+function renderUsers(){const me=curUser&&curUser.u;const docs=users().filter(x=>x.role==='doctor').length;
+  $('usersList').innerHTML=users().length?'<table><tr><th>المستخدم</th><th>الصلاحية</th><th></th></tr>'+users().map(x=>`<tr><td><b>${esc(x.u)}</b>${x.u===me?' <span class="badge ok">'+tr('أنت')+'</span>':''}</td><td><span class="role ${x.role}">${tr(x.role==='doctor'?'طبيب':'استقبال')}</span></td><td>${(x.u===me||(x.role==='doctor'&&docs<=1))?'':`<button class="btn danger small" onclick="delUser('${esc(x.u)}')">${tr('حذف')}</button>`}</td></tr>`).join('')+'</table>':'';
+  $('setRecEmail').value=settings.recEmail||'';$('setRecPhone').value=settings.recPhone||'';$('recState').textContent=settings.recoveryHash?'✅ '+tr('رمز الاسترجاع مُعدّ'):'⚠️ '+tr('لا يوجد رمز استرجاع — ولّد واحدًا الآن')}
+async function addUser(){const u=$('nuUser').value.trim(),p=$('nuPass').value,role=$('nuRole').value;
+  if(u.length<3)return toast(tr('اسم المستخدم 3 أحرف على الأقل'));if(p.length<6)return toast(tr('كلمة المرور 6 أحرف على الأقل'));if(findUser(u))return toast(tr('اسم المستخدم موجود مسبقًا'));
+  settings.users=[...users(),{u,h:await uhash(u,p),role,created:Date.now()}];await put('settings',{...settings,id:'main'});$('nuUser').value='';$('nuPass').value='';toast(tr('تمت الإضافة'));renderUsers()}
+async function delUser(u){if(!confirm(tr('حذف المستخدم')+' '+u+'؟'))return;settings.users=users().filter(x=>x.u!==u);await put('settings',{...settings,id:'main'});toast(tr('تم الحذف'));renderUsers()}
+async function saveRecovery(){settings.recEmail=$('setRecEmail').value.trim();settings.recPhone=$('setRecPhone').value.trim();await put('settings',{...settings,id:'main'});toast(tr('تم الحفظ'));renderUsers()}
+async function genRecovery(){await saveRecovery();pendingRecCode=genCode();settings.recoveryHash=await sha(pendingRecCode.replace(/-/g,''));await put('settings',{...settings,id:'main'});$('recCode').textContent=pendingRecCode;$('recCodeBox').style.display='';renderUsers()}
+async function sendRecovery(how){const code=pendingRecCode;if(!code)return toast(tr('ولّد رمز استرجاع أولًا'));
+  if($('lgCodeShow').style.display!=='none'){const e=$('lgRecEmail').value.trim(),p=$('lgRecPhone').value.trim();if(e)settings.recEmail=e;if(p)settings.recPhone=p;if(e||p)await put('settings',{...settings,id:'main'})}
+  const text=tr('رمز استرجاع كلمة المرور لنظام')+' '+tr(settings.name||'عيادة الأسنان')+': '+code+'\n'+tr('احتفظ به في مكان آمن ولا تشاركه.');
+  if(how==='wa'){const ph=waPhone(settings.recPhone||settings.phone);if(!ph)return toast(tr('أدخل هاتف الطبيب للاسترجاع أولًا'));window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(text),'_blank')}
+  else{const em=settings.recEmail||settings.email;if(!em)return toast(tr('أدخل بريد الطبيب للاسترجاع أولًا'));window.open('mailto:'+em+'?subject='+encodeURIComponent(tr('رمز استرجاع كلمة المرور'))+'&body='+encodeURIComponent(text))}}
 
 /* ---------- AI assistant (Anthropic) ---------- */
 const AI_SYS='أنت مساعد سريري لطبيب أسنان. حلّل المعطيات وقدّم: 1) ملخص الحالة، 2) التشخيص التفريقي مرتبًا بالاحتمال مع نسبة تقديرية لكل احتمال، 3) الفحوصات/الصور المقترحة لتأكيد التشخيص، 4) خطة علاج مبدئية، 5) علامات خطر تستدعي تحويلًا عاجلًا، 6) مراجع من جهات موثوقة (ADA, AAE, AAP, WHO, NICE, Cochrane, FDI) بأسماء الإرشادات. اكتب بلغة الطبيب (العربية إلا إذا كانت المعطيات بالعبرية أو الإنجليزية). كن دقيقًا ومختصرًا، واذكر صراحة أن القرار النهائي للطبيب المعالج وأن هذا رأي مساعد وليس تشخيصًا نهائيًا.';
@@ -739,10 +875,10 @@ const DEFS={
  turn:{ar:'مرحبًا {name}، دورك في {clinic} قريب جدًا 🦷\nالرجاء التوجه إلى العيادة الآن.',he:'שלום {name}, תורך ב{clinic} מתקרב 🦷\nאנא הגע/י למרפאה עכשיו.',en:'Hello {name}, your turn at {clinic} is coming up 🦷\nPlease head to the clinic now.'},
  due:{ar:'مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\n💳 المبلغ المتبقي عليك: {due}\nيرجى تجهيزه قبل الموعد. شكرًا 🙏',he:'שלום {name} 👋\nתזכורת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\n💳 היתרה לתשלום: {due}\nאנא הכן/י אותה לפני התור. תודה 🙏',en:'Hello {name} 👋\nReminder of your appointment at {clinic}{doctor} on {date} at {time}.\n💳 Your remaining balance: {due}\nPlease have it ready before the appointment. Thank you 🙏'}};
 const DEF=k=>DEFS[k][lang]||DEFS[k].ar;const isDef=(k,v)=>Object.values(DEFS[k]).includes(v);
-function loadSettingsForm(){renderFeedback();refreshPinState();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
+function loadSettingsForm(){renderFeedback();refreshPinState();renderUsers();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
   $('setRemindMin').value=settings.remindMin||30;$('setCountry').value=settings.country||'972';$('setMsgRemind').value=settings.msgRemind||DEF('remind');$('setMsgTurn').value=settings.msgTurn||DEF('turn');
   $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF('due')}
-async function saveSettings(){settings={id:'main',pinHash:settings.pinHash||'',lockMin:settings.lockMin||15,aiKey:settings.aiKey||'',aiModel:settings.aiModel||'claude-sonnet-5',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
+async function saveSettings(){settings={id:'main',users:settings.users||[],recoveryHash:settings.recoveryHash||'',recEmail:settings.recEmail||'',recPhone:settings.recPhone||'',pinHash:settings.pinHash||'',lockMin:settings.lockMin||15,aiKey:settings.aiKey||'',aiModel:settings.aiModel||'claude-sonnet-5',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
   remindMin:Number($('setRemindMin').value)||30,country:$('setCountry').value.trim()||'972',msgRemind:isDef('remind',$('setMsgRemind').value.trim())?'':$('setMsgRemind').value.trim(),msgTurn:isDef('turn',$('setMsgTurn').value.trim())?'':$('setMsgTurn').value.trim(),
   dueDays:Number($('setDueDays').value)||1,msgDue:isDef('due',$('setMsgDue').value.trim())?'':$('setMsgDue').value.trim()};await put('settings',settings);await loadSettings();updateNotifStatus();toast(tr('تم الحفظ'))}
 async function exportData(){const out={};for(const s of STORES)out[s]=await getAll(s);const b=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dental-backup-'+today()+'.json';a.click();toast(tr('تم التصدير'))}
@@ -815,6 +951,16 @@ const L={
 'وضع الاستقبال':['מצב קבלה','Reception mode'],'وضع الطبيب':['מצב רופא','Doctor mode'],'دخول الطبيب':['כניסת רופא','Doctor login'],'قفل':['נעל','Lock'],'أدخل الرمز السري للطبيب':['הזן קוד רופא','Enter doctor PIN'],'رمز غير صحيح':['קוד שגוי','Wrong PIN'],'مرحبًا دكتور':['שלום דוקטור','Welcome, doctor'],'تم القفل تلقائيًا':['ננעל אוטומטית','Locked automatically'],'اضبط الرمز السري للطبيب أولًا':['הגדר תחילה קוד רופא','Set a doctor PIN first'],
 'حماية البيانات الطبية (الطبيب فقط)':['הגנת מידע רפואי (רופא בלבד)','Medical data protection (doctor only)'],'الرمز السري للطبيب (4 أرقام أو أكثر)':['קוד רופא (4 ספרות ומעלה)','Doctor PIN (4+ digits)'],'اتركه فارغًا لإلغاء القفل':['השאר ריק לביטול הנעילה','Leave empty to disable lock'],'قفل تلقائي بعد (دقائق بدون نشاط)':['נעילה אוטומטית אחרי (דקות ללא פעילות)','Auto-lock after (idle minutes)'],'حفظ الرمز':['שמור קוד','Save PIN'],'القفل مفعّل':['הנעילה פעילה','Lock enabled'],'غير مفعّل':['לא פעיל','Not enabled'],'الرمز 4 أرقام على الأقل':['הקוד לפחות 4 ספרות','PIN must be 4+ digits'],'هذه البيانات الطبية متاحة للطبيب فقط':['מידע רפואי זה זמין לרופא בלבד','This medical data is for the doctor only'],'للطبيب فقط':['לרופא בלבד','Doctor only'],
 'عند تفعيل الرمز السري تُخفى المعاينة والتشخيص وأقسام العلاج وصور الأشعة والتحليل الذكي عن موظفي الاستقبال، وتبقى المواعيد والدفعات وبيانات الاتصال متاحة.':['כשהקוד פעיל, הבדיקה, האבחון, הטיפולים, הצילומים והניתוח החכם מוסתרים מצוות הקבלה; תורים, תשלומים ופרטי קשר נשארים זמינים.','With a PIN set, exam, diagnosis, treatments, X-rays and AI analysis are hidden from reception staff; appointments, payments and contact details stay available.'],
+'تسجيل الدخول':['התחברות','Sign in'],'أدخل اسم المستخدم وكلمة المرور للدخول إلى النظام':['הזן שם משתמש וסיסמה לכניסה למערכת','Enter your username and password to access the system'],'اسم المستخدم':['שם משתמש','Username'],'كلمة المرور':['סיסמה','Password'],'كلمة المرور الجديدة':['סיסמה חדשה','New password'],'تأكيد كلمة المرور':['אימות סיסמה','Confirm password'],'تذكرني على هذا الجهاز':['זכור אותי במכשיר זה','Remember me on this device'],'دخول':['כניסה','Sign in'],'خروج':['יציאה','Log out'],
+'نسيت كلمة المرور؟':['שכחת סיסמה?','Forgot password?'],'← العودة لتسجيل الدخول':['← חזרה להתחברות','← Back to sign in'],'إنشاء حساب الطبيب':['יצירת חשבון רופא','Create doctor account'],'هذا أول تشغيل للنظام — أنشئ حساب الطبيب (المدير) للدخول':['זו ההפעלה הראשונה — צור חשבון רופא (מנהל) לכניסה','First run — create the doctor (admin) account to sign in'],'إنشاء الحساب والدخول':['צור חשבון והיכנס','Create account & sign in'],
+'استرجاع كلمة المرور':['שחזור סיסמה','Password recovery'],'إعادة تعيين كلمة المرور':['איפוס סיסמה','Reset password'],'رمز الاسترجاع':['קוד שחזור','Recovery code'],'اسم المستخدم 3 أحرف على الأقل':['שם משתמש לפחות 3 תווים','Username must be 3+ characters'],'كلمة المرور 6 أحرف على الأقل':['סיסמה לפחות 6 תווים','Password must be 6+ characters'],'كلمتا المرور غير متطابقتين':['הסיסמאות אינן תואמות','Passwords do not match'],
+'اسم المستخدم غير موجود':['שם המשתמש לא קיים','Username not found'],'لا يوجد رمز استرجاع مُعدّ':['לא הוגדר קוד שחזור','No recovery code is set'],'رمز الاسترجاع غير صحيح':['קוד השחזור שגוי','Wrong recovery code'],'اسم المستخدم أو كلمة المرور غير صحيحة':['שם משתמש או סיסמה שגויים','Wrong username or password'],'محاولات كثيرة — انتظر':['יותר מדי ניסיונות — המתן','Too many attempts — wait'],'ثانية':['שניות','seconds'],'مرحبًا':['שלום','Welcome'],
+'تم تغيير كلمة المرور — ولّد رمز استرجاع جديدًا من الإعدادات':['הסיסמה שונתה — צור קוד שחזור חדש בהגדרות','Password changed — generate a new recovery code in Settings'],'لم يُعدّ رمز استرجاع لهذا النظام. تواصل مع الطبيب أو استعد نسخة احتياطية.':['לא הוגדר קוד שחזור. פנה לרופא או שחזר גיבוי.','No recovery code was set up. Contact the doctor or restore a backup.'],'أدخل رمز الاسترجاع الذي أرسله الطبيب إلى':['הזן את קוד השחזור שהרופא שלח אל','Enter the recovery code the doctor sent to'],'بريده/هاتفه':['האימייל/הטלפון שלו','their email/phone'],'ثم اختر كلمة مرور جديدة.':['ואז בחר סיסמה חדשה.','then choose a new password.'],
+'رمز الاسترجاع لحسابك (يظهر مرة واحدة — احفظه أو أرسله لنفسك الآن):':['קוד השחזור לחשבונך (מוצג פעם אחת — שמור או שלח לעצמך עכשיו):','Your recovery code (shown once — save it or send it to yourself now):'],'بريد الطبيب (للاسترجاع)':['אימייל הרופא (לשחזור)','Doctor email (for recovery)'],'هاتف الطبيب (واتساب)':['טלפון הרופא (וואטסאפ)','Doctor phone (WhatsApp)'],'📲 واتساب':['📲 וואטסאפ','📲 WhatsApp'],'✉️ بريد':['✉️ אימייל','✉️ Email'],'حفظته — الدخول إلى النظام':['שמרתי — כניסה למערכת','Saved it — enter the system'],
+'المستخدمون وتسجيل الدخول':['משתמשים והתחברות','Users & sign-in'],'لا يمكن فتح النظام إلا بحساب مستخدم. حساب "طبيب" يرى كل شيء، وحساب "استقبال" يرى المواعيد والدفعات وبيانات الاتصال فقط.':['הכניסה למערכת רק עם חשבון משתמש. חשבון "רופא" רואה הכל; חשבון "קבלה" רואה תורים, תשלומים ופרטי קשר בלבד.','The system opens only with a user account. A "doctor" account sees everything; a "reception" account sees appointments, payments and contact details only.'],'إضافة مستخدم':['הוספת משתמש','Add user'],'كلمة المرور (6 أحرف أو أكثر)':['סיסמה (6 תווים ומעלה)','Password (6+ characters)'],'الصلاحية':['הרשאה','Role'],'استقبال':['קבלה','Reception'],'طبيب':['רופא','Doctor'],'إضافة المستخدم':['הוסף משתמש','Add user'],'المستخدم':['משתמש','User'],'أنت':['אתה','you'],'اسم المستخدم موجود مسبقًا':['שם המשתמש כבר קיים','Username already exists'],'حذف المستخدم':['מחיקת משתמש','Delete user'],
+'إذا نُسيت كلمة المرور يمكن إعادة تعيينها من شاشة الدخول باستخدام رمز الاسترجاع. ولّد الرمز وأرسله إلى بريد الطبيب أو هاتفه واحتفظ به في مكان آمن.':['אם הסיסמה נשכחה ניתן לאפס אותה ממסך הכניסה עם קוד שחזור. צור את הקוד, שלח לאימייל/טלפון של הרופא ושמור במקום בטוח.','If the password is forgotten it can be reset from the sign-in screen with a recovery code. Generate it, send it to the doctor\'s email or phone and keep it safe.'],'بريد الطبيب للاسترجاع':['אימייל הרופא לשחזור','Doctor recovery email'],'هاتف الطبيب للاسترجاع (واتساب)':['טלפון הרופא לשחזור (וואטסאפ)','Doctor recovery phone (WhatsApp)'],'حفظ بيانات الاسترجاع':['שמור פרטי שחזור','Save recovery details'],'🔑 توليد رمز استرجاع جديد':['🔑 צור קוד שחזור חדש','🔑 Generate new recovery code'],
+'رمز الاسترجاع (يظهر مرة واحدة فقط — احفظه الآن):':['קוד שחזור (מוצג פעם אחת — שמור עכשיו):','Recovery code (shown only once — save it now):'],'📲 إرسال إلى هاتف الطبيب':['📲 שלח לטלפון הרופא','📲 Send to doctor phone'],'✉️ إرسال إلى بريد الطبيب':['✉️ שלח לאימייל הרופא','✉️ Send to doctor email'],'رمز الاسترجاع مُعدّ':['קוד שחזור מוגדר','Recovery code is set'],'لا يوجد رمز استرجاع — ولّد واحدًا الآن':['אין קוד שחזור — צור אחד עכשיו','No recovery code — generate one now'],'ولّد رمز استرجاع أولًا':['צור קוד שחזור תחילה','Generate a recovery code first'],
+'رمز استرجاع كلمة المرور لنظام':['קוד שחזור סיסמה למערכת','Password recovery code for'],'احتفظ به في مكان آمن ولا تشاركه.':['שמור במקום בטוח ואל תשתף.','Keep it safe and do not share it.'],'أدخل هاتف الطبيب للاسترجاع أولًا':['הזן תחילה טלפון רופא לשחזור','Enter the doctor recovery phone first'],'أدخل بريد الطبيب للاسترجاع أولًا':['הזן תחילה אימייל רופא לשחזור','Enter the doctor recovery email first'],'رمز استرجاع كلمة المرور':['קוד שחזור סיסמה','Password recovery code'],'أدخل كلمة مرور حسابك':['הזן את סיסמת חשבונך','Enter your account password'],'هذا القسم للطبيب فقط — سجّل الدخول بحساب طبيب':['מדור זה לרופא בלבד — התחבר עם חשבון רופא','Doctor only — sign in with a doctor account'],
 'المساعد التشخيصي (Claude AI)':['עוזר אבחון (Claude AI)','Diagnostic assistant (Claude AI)'],'تحليل الأعراض والتشخيص التفريقي':['ניתוח תסמינים ואבחנה מבדלת','Analyze symptoms & differential diagnosis'],'جاري التحليل...':['מנתח...','Analyzing...'],'التحليل والتشخيص التفريقي':['ניתוח ואבחנה מבדלת','Analysis & differential diagnosis'],'آخر تحليل':['ניתוח אחרון','Last analysis'],'قراءة الصورة الشعاعية':['קריאת הצילום','X-ray reading'],'تحليل بالذكاء الاصطناعي':['ניתוח AI','AI analysis'],'رأي مساعد بالذكاء الاصطناعي — القرار النهائي للطبيب المعالج.':['חוות דעת מסייעת של AI — ההחלטה הסופית של הרופא המטפל.','AI-assisted opinion — final decision rests with the treating doctor.'],
 'الذكاء الاصطناعي (Anthropic Claude)':['בינה מלאכותית (Anthropic Claude)','AI (Anthropic Claude)'],'مفتاح API':['מפתח API','API key'],'النموذج':['מודל','Model'],'اختبار الاتصال':['בדיקת חיבור','Test connection'],'المفتاح محفوظ':['המפתח נשמר','Key saved'],'الاتصال يعمل':['החיבור עובד','Connection works'],'أدخل مفتاح API في الإعدادات':['הזן מפתח API בהגדרות','Enter an API key in Settings'],
 'يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من':['מנתח תסמינים וצילומים ומציע אבחנה מבדלת עם מקורות מהימנים. דורש מפתח API מ-','Analyzes symptoms and X-rays and suggests a differential diagnosis with trusted references. Requires an API key from'],'. المفتاح يُحفظ في هذا المتصفح فقط.':['. המפתח נשמר בדפדפן זה בלבד.','. The key is stored only in this browser.'],
@@ -841,7 +987,7 @@ function startObserver(){obs=new MutationObserver(ms=>{if(lang==='ar')return;for
   obs.observe(document.body,{childList:true,subtree:true,characterData:true})}
 
 /* ---------- Init ---------- */
-(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);applyLock();startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);startObserver();await authGate();applyLock();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
