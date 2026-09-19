@@ -95,6 +95,13 @@ tr:hover td{background:#f9fafb}
 .stars{display:flex;gap:4px;direction:ltr;justify-content:flex-end}
 .stars span{font-size:1.6rem;cursor:pointer;color:#d1d5db}.stars span.on{color:#f59e0b}
 .fb-item{border-bottom:1px solid var(--border);padding:8px 0}.fb-item .m{color:var(--muted);font-size:.85rem}
+.lock{display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.15);border-radius:8px;padding:4px 8px;color:#fff;font-size:.85rem}
+.lock button{background:#fff;color:var(--primary-dark);border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;font-weight:700}
+.locked-box{background:#fff7ed;border:1px dashed #f59e0b;border-radius:12px;padding:22px;text-align:center;color:#92400e}
+.ai-box{background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;padding:14px;margin-top:12px;white-space:pre-wrap;line-height:1.7}
+.ai-box h4{margin:0 0 6px;color:var(--primary-dark)}
+.ai-warn{font-size:.82rem;color:#92400e;background:#fffbeb;border-radius:8px;padding:8px 10px;margin-top:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:middle;margin-inline-end:6px}@keyframes sp{to{transform:rotate(360deg)}}
 .langsw{display:flex;gap:4px;background:rgba(255,255,255,.15);border-radius:8px;padding:3px}
 .langsw button{background:none;border:0;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.85rem}
 .langsw button.active{background:#fff;color:var(--primary-dark);font-weight:700}
@@ -115,6 +122,7 @@ tr:hover td{background:#f9fafb}
     <button data-view="settings">⚙️ الإعدادات</button>
   </nav>
   <div class="langsw"><button data-lang="ar" onclick="applyLang('ar')">العربية</button><button data-lang="he" onclick="applyLang('he')">עברית</button><button data-lang="en" onclick="applyLang('en')">English</button></div>
+  <div class="lock" id="lockBox"><span id="lockState">🔒 وضع الاستقبال</span><button id="lockBtn" onclick="toggleLock()">دخول الطبيب</button></div>
 </header>
 
 <div class="pbar" id="pbar">
@@ -258,6 +266,10 @@ tr:hover td{background:#f9fafb}
         <div class="field"><label>الشكوى الرئيسية</label><textarea id="exComplaint"></textarea></div>
         <div class="field"><label>ملاحظات الفحص</label><textarea id="exNotes"></textarea></div>
       </div>
+      <div class="card" style="background:#f0fdfa;border:1px solid #99f6e4">
+        <div class="row between"><h3 style="margin:0">🤖 المساعد التشخيصي (Claude AI)</h3><button class="btn" id="aiSymBtn" onclick="aiSymptoms()">تحليل الأعراض والتشخيص التفريقي</button></div>
+        <div id="aiSymOut"></div>
+      </div>
       <h3>مخطط الأسنان (اضغط على السن لتحديده كمعالَج)</h3>
       <div class="tooth-grid" id="toothChart"></div>
       <button class="btn" onclick="saveExam()">حفظ المعاينة</button>
@@ -358,6 +370,26 @@ tr:hover td{background:#f9fafb}
       <div class="field"><label>العملة</label><input id="setCurrency" placeholder="₪"></div>
     </div>
     <button class="btn" onclick="saveSettings()">حفظ</button>
+  </div>
+  <div class="card">
+    <h2>🔐 حماية البيانات الطبية (الطبيب فقط)</h2>
+    <p style="color:var(--muted);margin-bottom:10px">عند تفعيل الرمز السري تُخفى المعاينة والتشخيص وأقسام العلاج وصور الأشعة والتحليل الذكي عن موظفي الاستقبال، وتبقى المواعيد والدفعات وبيانات الاتصال متاحة.</p>
+    <div class="grid grid-2">
+      <div class="field"><label>الرمز السري للطبيب (4 أرقام أو أكثر)</label><input type="password" id="setPin" placeholder="اتركه فارغًا لإلغاء القفل"></div>
+      <div class="field"><label>قفل تلقائي بعد (دقائق بدون نشاط)</label><input type="number" id="setLockMin" min="1" placeholder="15"></div>
+    </div>
+    <button class="btn" onclick="savePin()">حفظ الرمز</button>
+    <span id="pinState" style="margin-inline-start:10px;color:var(--muted)"></span>
+  </div>
+  <div class="card">
+    <h2>🤖 الذكاء الاصطناعي (Anthropic Claude)</h2>
+    <p style="color:var(--muted);margin-bottom:10px">يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. المفتاح يُحفظ في هذا المتصفح فقط.</p>
+    <div class="grid grid-2">
+      <div class="field"><label>مفتاح API</label><input type="password" id="setAiKey" placeholder="sk-ant-..."></div>
+      <div class="field"><label>النموذج</label><select id="setAiModel"><option value="claude-sonnet-5">claude-sonnet-5 (موصى به)</option><option value="claude-opus-5">claude-opus-5 (أدق وأغلى)</option><option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (أسرع وأرخص)</option></select></div>
+    </div>
+    <div class="row"><button class="btn" onclick="saveAi()">حفظ</button><button class="btn secondary" onclick="testAi()">اختبار الاتصال</button><span id="aiState" style="color:var(--muted)"></span></div>
+    <div class="ai-warn">⚠️ التحليل الذكي أداة مساعدة للطبيب وليس تشخيصًا نهائيًا. صور المرضى تُرسل إلى خدمة Anthropic للتحليل — احصل على موافقة المريض واطّلع على سياسة الخصوصية.</div>
   </div>
   <div class="card">
     <h2>🔔 إعدادات التنبيهات</h2>
@@ -511,13 +543,13 @@ async function openPatient(id){currentId=id;currentP=await get('patients',id);if
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-patient').classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==='patients'));
   $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&tr('ملف:')+' '+currentP.fileNo,currentP.phone,currentP.gender,age(currentP.dob),currentP.address].filter(Boolean).join(' • ');
   const ex=currentP.exam||{};$('exMedical').value=ex.medical||'';$('exAllergy').value=ex.allergy||'';$('exComplaint').value=ex.complaint||'';$('exNotes').value=ex.notes||'';
-  renderTeeth();$('trDate').value=today();$('payDate').value=today();
-  await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);window.scrollTo(0,0)}
+  renderTeeth();$('trDate').value=today();$('payDate').value=today();$('aiSymOut').innerHTML='';if(currentP.aiSymptoms)aiRender($('aiSymOut'),'🧠 '+tr('آخر تحليل')+' ('+currentP.aiSymptoms.date+')',currentP.aiSymptoms.text);
+  await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);applyLock();window.scrollTo(0,0)}
 const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometric',cbct:'CBCT',ct:'CT',photo:'صورة فوتوغرافية',other:'أخرى'};
 const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',other:'📁'};
 const XK_ORDER=Object.keys(XK);
 function xrayFolders(list,delBtn){const g={};list.forEach(x=>{const k=XK[x.kind]?x.kind:'other';(g[k]=g[k]||[]).push(x)});
-  return XK_ORDER.filter(k=>g[k]).map(k=>`<details class="folder" open><summary><span>${XK_ICON[k]} ${tr(XK[k])}</span><span class="badge ok">${g[k].length} ${tr('صورة')}</span></summary><div class="xrays">${g[k].map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)}${delBtn?` <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a>`:''}</div></div>`).join('')}</div></details>`).join('')}
+  return XK_ORDER.filter(k=>g[k]).map(k=>`<details class="folder" open><summary><span>${XK_ICON[k]} ${tr(XK[k])}</span><span class="badge ok">${g[k].length} ${tr('صورة')}</span></summary><div class="xrays">${g[k].map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)}${delBtn?` <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a>`:''}<br><button class="btn small" style="margin-top:4px;width:100%" onclick="aiXray('${x.id}')">🤖 ${tr('تحليل بالذكاء الاصطناعي')}</button></div><div id="aiX_${x.id}">${x.ai?`<div class="ai-box" style="font-size:.8rem;max-height:220px;overflow:auto"><h4>🩻 ${x.ai.date}</h4>${esc(x.ai.text)}</div>`:''}</div></div>`).join('')}</div></details>`).join('')}
 const TEETH=[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
 function renderTeeth(){const sel=new Set(currentP.teeth||[]);$('toothChart').innerHTML=TEETH.map(n=>`<div class="tooth ${sel.has(n)?'sel':''}" onclick="toggleTooth(${n})">${n}</div>`).join('')}
 function toggleTooth(n){const s=new Set(currentP.teeth||[]);s.has(n)?s.delete(n):s.add(n);currentP.teeth=[...s];renderTeeth()}
@@ -599,7 +631,7 @@ function apTab(m,btn){apMode=m;btn.parentElement.querySelectorAll('button').forE
 
 /* ---------- Global: Treatments by category ---------- */
 const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':'🩺','خلع':'🔧','تركيبات (تاج/جسر)':'👑','زراعة':'🌱','تقويم':'📐','تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
-async function renderTreatmentsView(cat){
+async function renderTreatmentsView(cat){if(isLocked()){$('treatCats').innerHTML=lockedHtml();$('treatCatCard').style.display='none';return}
   let [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);trs=byActive(trs);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const cats=[...$('trType').options].map(o=>o.value);
   $('treatCats').innerHTML=cats.map(c=>{const l=trs.filter(t=>t.type===c);const sum=l.reduce((a,t)=>a+Number(t.cost||0),0);
@@ -611,7 +643,7 @@ async function renderTreatmentsView(cat){
   $('treatCatCard').scrollIntoView({behavior:'smooth'})}
 
 /* ---------- Global: X-ray archive ---------- */
-async function renderXraysView(){
+async function renderXraysView(){if(isLocked()){$('xrayArchive').innerHTML=lockedHtml();return}
   const [xr,ps]=await Promise.all([getAll('xrays'),getAll('patients')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const sel=$('xrayFilter');const cur=AP()||sel.value;sel.innerHTML='<option value="">كل المرضى</option>'+byActive(ps).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');sel.value=cur;
   const l=xr.filter(x=>!cur||x.patientId===cur).sort((a,b)=>b.id.localeCompare(a.id));
@@ -636,6 +668,51 @@ async function renderPaymentsView(){
 async function addAppointment(){const pid=$('apPatient').value,t=$('apTime').value;if(!pid||!t)return toast(tr('اختر المريض والوقت'));
   await put('appointments',{id:uid(),patientId:pid,time:t,reason:$('apReason').value.trim()});$('apReason').value='';toast(tr('تم حفظ الموعد'));renderAppointments()}
 async function delAp(id){await del('appointments',id);renderAppointments()}
+
+/* ---------- Doctor lock ---------- */
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+let unlocked=(()=>{try{return sessionStorage.getItem('docUnlocked')==='1'}catch(e){return false}})();
+const isLocked=()=>!!settings.pinHash&&!unlocked;
+let lastAct=Date.now();['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
+setInterval(()=>{if(settings.pinHash&&unlocked&&Date.now()-lastAct>(Number(settings.lockMin)||15)*60000){unlocked=false;try{sessionStorage.removeItem('docUnlocked')}catch(e){}applyLock();toast(tr('تم القفل تلقائيًا'))}},30000);
+async function toggleLock(){if(!settings.pinHash){showView('settings');toast(tr('اضبط الرمز السري للطبيب أولًا'));return}
+  if(unlocked){unlocked=false;try{sessionStorage.removeItem('docUnlocked')}catch(e){}applyLock();return}
+  const p=prompt(tr('أدخل الرمز السري للطبيب'));if(p===null)return;if(await sha(p)===settings.pinHash){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}applyLock();toast(tr('مرحبًا دكتور'))}else toast(tr('رمز غير صحيح'))}
+function applyLock(){const L_=isLocked();const has=!!settings.pinHash;
+  $('lockBox').style.display=has?'':'none';$('lockState').textContent=L_?'🔒 '+tr('وضع الاستقبال'):'🔓 '+tr('وضع الطبيب');$('lockBtn').textContent=L_?tr('دخول الطبيب'):tr('قفل');
+  document.querySelectorAll('nav button[data-view=treatments],nav button[data-view=xrays]').forEach(b=>b.style.display=L_?'none':'');
+  document.querySelectorAll('.tile[onclick*=treatments],.tile[onclick*=xrays]').forEach(b=>b.style.display=L_?'none':'');
+  document.querySelectorAll('.tabs button[data-tab=exam],.tabs button[data-tab=treat],.tabs button[data-tab=xray]').forEach(b=>b.style.display=L_?'none':'');
+  if(L_){const cur=document.querySelector('.view.active');if(cur&&(cur.id==='view-treatments'||cur.id==='view-xrays'))showView('dashboard');
+    if($('view-patient').classList.contains('active')){document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const b=document.querySelector('.tabs button[data-tab=pay]');if(b){b.classList.add('active');$('tab-pay').classList.add('active')}}}
+  else{const v=document.querySelector('.view.active');if(v){const id=v.id.replace('view-','');if(id==='patient'&&currentId)openPatient(currentId);else showView(id)}}
+  refreshPinState()}
+function refreshPinState(){if($('pinState'))$('pinState').textContent=settings.pinHash?'✅ '+tr('القفل مفعّل'):tr('غير مفعّل')}
+async function savePin(){const v=$('setPin').value.trim();if(v&&v.length<4)return toast(tr('الرمز 4 أرقام على الأقل'));
+  settings.pinHash=v?await sha(v):'';settings.lockMin=Number($('setLockMin').value)||15;await put('settings',{...settings,id:'main'});$('setPin').value='';
+  if(v){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}}applyLock();toast(tr('تم الحفظ'))}
+const lockedHtml=()=>`<div class="locked-box">🔒 ${tr('هذه البيانات الطبية متاحة للطبيب فقط')}<br><button class="btn small" style="margin-top:8px" onclick="toggleLock()">${tr('دخول الطبيب')}</button></div>`;
+
+/* ---------- AI assistant (Anthropic) ---------- */
+const AI_SYS='أنت مساعد سريري لطبيب أسنان. حلّل المعطيات وقدّم: 1) ملخص الحالة، 2) التشخيص التفريقي مرتبًا بالاحتمال مع نسبة تقديرية لكل احتمال، 3) الفحوصات/الصور المقترحة لتأكيد التشخيص، 4) خطة علاج مبدئية، 5) علامات خطر تستدعي تحويلًا عاجلًا، 6) مراجع من جهات موثوقة (ADA, AAE, AAP, WHO, NICE, Cochrane, FDI) بأسماء الإرشادات. اكتب بلغة الطبيب (العربية إلا إذا كانت المعطيات بالعبرية أو الإنجليزية). كن دقيقًا ومختصرًا، واذكر صراحة أن القرار النهائي للطبيب المعالج وأن هذا رأي مساعد وليس تشخيصًا نهائيًا.';
+async function aiCall(content,maxTokens){if(!settings.aiKey)throw new Error(tr('أدخل مفتاح API في الإعدادات'));
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':settings.aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:settings.aiModel||'claude-sonnet-5',max_tokens:maxTokens||1800,system:AI_SYS,messages:[{role:'user',content}]})});
+  const j=await r.json();if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));return j.content.filter(c=>c.type==='text').map(c=>c.text).join('\n')}
+function aiRender(el,title,text,busy){el.innerHTML=busy?`<div class="ai-box"><span class="spin" style="border-color:var(--primary);border-top-color:transparent"></span>${tr('جاري التحليل...')}</div>`:`<div class="ai-box"><h4>${title}</h4>${esc(text)}<div class="ai-warn">⚠️ ${tr('رأي مساعد بالذكاء الاصطناعي — القرار النهائي للطبيب المعالج.')}</div></div>`}
+async function aiSymptoms(){if(isLocked())return toast(tr('للطبيب فقط'));const p=currentP;if(!p)return;
+  const [trs,xr]=await Promise.all([byPatient('treatments',p.id),byPatient('xrays',p.id)]);
+  const info=`المريض: ${p.gender||''} ${age(p.dob)||''}\nالشكوى الرئيسية: ${$('exComplaint').value||'-'}\nالتاريخ الطبي: ${$('exMedical').value||'-'}\nحساسية: ${$('exAllergy').value||'-'}\nملاحظات الفحص: ${$('exNotes').value||'-'}\nأسنان محددة: ${(p.teeth||[]).join(', ')||'-'}\nإجراءات سابقة: ${trs.map(t=>t.date+' '+t.type+(t.tooth?' سن '+t.tooth:'')).join('; ')||'-'}\nصور أشعة متوفرة: ${xr.length}`;
+  const out=$('aiSymOut');aiRender(out,'',null,true);$('aiSymBtn').disabled=true;
+  try{const txt=await aiCall([{type:'text',text:info}]);aiRender(out,'🧠 '+tr('التحليل والتشخيص التفريقي'),txt);p.aiSymptoms={date:today(),text:txt};await put('patients',p)}
+  catch(e){out.innerHTML=`<div class="ai-warn">❌ ${esc(e.message)}</div>`}$('aiSymBtn').disabled=false}
+async function aiXray(id){if(isLocked())return toast(tr('للطبيب فقط'));const x=await get('xrays',id);if(!x)return;const p=currentP||await get('patients',x.patientId);
+  const box=$('aiX_'+id);aiRender(box,'',null,true);
+  try{const b64=x.data.split(',')[1];const txt=await aiCall([{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:`نوع الصورة: ${XK[x.kind]||x.kind||'X-ray'}. ${x.note?'ملاحظة: '+x.note+'. ':''}المريض: ${p?(p.gender||'')+' '+age(p.dob):''}. الشكوى: ${(p&&p.exam&&p.exam.complaint)||'-'}.\nحلّل الصورة الشعاعية سنًّا بسن (ترقيم FDI) واذكر: التسوس، الحشوات، علاج العصب، الآفات الذروية، فقدان العظم/أمراض اللثة، الأسنان المنطمرة، الأكياس أو الأورام، الأسنان المفقودة، أي علامات أخرى، ثم التشخيص المحتمل والتوصيات. اذكر جودة الصورة ومحدوديات القراءة.`}],2000);
+    aiRender(box,'🩻 '+tr('قراءة الصورة الشعاعية'),txt);x.ai={date:today(),text:txt};await put('xrays',x)}
+  catch(e){box.innerHTML=`<div class="ai-warn">❌ ${esc(e.message)}</div>`}}
+async function saveAi(){settings.aiKey=$('setAiKey').value.trim();settings.aiModel=$('setAiModel').value;await put('settings',{...settings,id:'main'});toast(tr('تم الحفظ'));$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):''}
+async function testAi(){$('aiState').textContent='⏳';try{const t=await aiCall([{type:'text',text:'اكتب كلمة: جاهز'}],20);$('aiState').textContent='✅ '+tr('الاتصال يعمل')+' — '+t.slice(0,30)}catch(e){$('aiState').textContent='❌ '+e.message}}
 
 /* ---------- Feedback / contact ---------- */
 let fbRating=0;
@@ -662,10 +739,10 @@ const DEFS={
  turn:{ar:'مرحبًا {name}، دورك في {clinic} قريب جدًا 🦷\nالرجاء التوجه إلى العيادة الآن.',he:'שלום {name}, תורך ב{clinic} מתקרב 🦷\nאנא הגע/י למרפאה עכשיו.',en:'Hello {name}, your turn at {clinic} is coming up 🦷\nPlease head to the clinic now.'},
  due:{ar:'مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\n💳 المبلغ المتبقي عليك: {due}\nيرجى تجهيزه قبل الموعد. شكرًا 🙏',he:'שלום {name} 👋\nתזכורת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\n💳 היתרה לתשלום: {due}\nאנא הכן/י אותה לפני התור. תודה 🙏',en:'Hello {name} 👋\nReminder of your appointment at {clinic}{doctor} on {date} at {time}.\n💳 Your remaining balance: {due}\nPlease have it ready before the appointment. Thank you 🙏'}};
 const DEF=k=>DEFS[k][lang]||DEFS[k].ar;const isDef=(k,v)=>Object.values(DEFS[k]).includes(v);
-function loadSettingsForm(){renderFeedback();$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
+function loadSettingsForm(){renderFeedback();refreshPinState();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
   $('setRemindMin').value=settings.remindMin||30;$('setCountry').value=settings.country||'972';$('setMsgRemind').value=settings.msgRemind||DEF('remind');$('setMsgTurn').value=settings.msgTurn||DEF('turn');
   $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF('due')}
-async function saveSettings(){settings={id:'main',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
+async function saveSettings(){settings={id:'main',pinHash:settings.pinHash||'',lockMin:settings.lockMin||15,aiKey:settings.aiKey||'',aiModel:settings.aiModel||'claude-sonnet-5',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
   remindMin:Number($('setRemindMin').value)||30,country:$('setCountry').value.trim()||'972',msgRemind:isDef('remind',$('setMsgRemind').value.trim())?'':$('setMsgRemind').value.trim(),msgTurn:isDef('turn',$('setMsgTurn').value.trim())?'':$('setMsgTurn').value.trim(),
   dueDays:Number($('setDueDays').value)||1,msgDue:isDef('due',$('setMsgDue').value.trim())?'':$('setMsgDue').value.trim()};await put('settings',settings);await loadSettings();updateNotifStatus();toast(tr('تم الحفظ'))}
 async function exportData(){const out={};for(const s of STORES)out[s]=await getAll(s);const b=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dental-backup-'+today()+'.json';a.click();toast(tr('تم التصدير'))}
@@ -735,6 +812,13 @@ const L={
 'تقييم الخدمة':['דירוג השירות','Service rating'],'الرسالة *':['הודעה *','Message *'],'اكتب ملاحظتك أو اقتراحك هنا...':['כתוב כאן את ההערה או ההצעה שלך...','Write your feedback or suggestion here...'],'📩 إرسال':['📩 שלח','📩 Send'],'📲 إرسال عبر واتساب':['📲 שלח בוואטסאפ','📲 Send via WhatsApp'],'✉️ إرسال عبر البريد':['✉️ שלח באימייל','✉️ Send by email'],
 '✔ شكرًا لك! تم استلام رسالتك.':['✔ תודה! ההודעה התקבלה.','✔ Thank you! Your message was received.'],'اكتب رسالتك أولًا':['כתוב הודעה תחילה','Write a message first'],'تم الإرسال':['נשלח','Sent'],'لم يُضبط رقم هاتف العيادة في الإعدادات':['לא הוגדר טלפון המרפאה בהגדרות','Clinic phone is not set in Settings'],'لم يُضبط بريد العيادة في الإعدادات':['לא הוגדר אימייל המרפאה בהגדרות','Clinic email is not set in Settings'],
 'صندوق الملاحظات والاقتراحات':['תיבת הערות והצעות','Feedback inbox'],'الرسائل المرسلة من استمارة الصفحة الرئيسية.':['הודעות שנשלחו מטופס עמוד הבית.','Messages sent from the home page form.'],'بريد استلام الرسائل (اختياري)':['אימייל לקבלת הודעות (אופציונלי)','Email for receiving messages (optional)'],'لا توجد رسائل بعد':['אין הודעות עדיין','No messages yet'],'اختر لغة الواجهة':['בחר שפת ממשק','Choose interface language'],
+'وضع الاستقبال':['מצב קבלה','Reception mode'],'وضع الطبيب':['מצב רופא','Doctor mode'],'دخول الطبيب':['כניסת רופא','Doctor login'],'قفل':['נעל','Lock'],'أدخل الرمز السري للطبيب':['הזן קוד רופא','Enter doctor PIN'],'رمز غير صحيح':['קוד שגוי','Wrong PIN'],'مرحبًا دكتور':['שלום דוקטור','Welcome, doctor'],'تم القفل تلقائيًا':['ננעל אוטומטית','Locked automatically'],'اضبط الرمز السري للطبيب أولًا':['הגדר תחילה קוד רופא','Set a doctor PIN first'],
+'حماية البيانات الطبية (الطبيب فقط)':['הגנת מידע רפואי (רופא בלבד)','Medical data protection (doctor only)'],'الرمز السري للطبيب (4 أرقام أو أكثر)':['קוד רופא (4 ספרות ומעלה)','Doctor PIN (4+ digits)'],'اتركه فارغًا لإلغاء القفل':['השאר ריק לביטול הנעילה','Leave empty to disable lock'],'قفل تلقائي بعد (دقائق بدون نشاط)':['נעילה אוטומטית אחרי (דקות ללא פעילות)','Auto-lock after (idle minutes)'],'حفظ الرمز':['שמור קוד','Save PIN'],'القفل مفعّل':['הנעילה פעילה','Lock enabled'],'غير مفعّل':['לא פעיל','Not enabled'],'الرمز 4 أرقام على الأقل':['הקוד לפחות 4 ספרות','PIN must be 4+ digits'],'هذه البيانات الطبية متاحة للطبيب فقط':['מידע רפואי זה זמין לרופא בלבד','This medical data is for the doctor only'],'للطبيب فقط':['לרופא בלבד','Doctor only'],
+'عند تفعيل الرمز السري تُخفى المعاينة والتشخيص وأقسام العلاج وصور الأشعة والتحليل الذكي عن موظفي الاستقبال، وتبقى المواعيد والدفعات وبيانات الاتصال متاحة.':['כשהקוד פעיל, הבדיקה, האבחון, הטיפולים, הצילומים והניתוח החכם מוסתרים מצוות הקבלה; תורים, תשלומים ופרטי קשר נשארים זמינים.','With a PIN set, exam, diagnosis, treatments, X-rays and AI analysis are hidden from reception staff; appointments, payments and contact details stay available.'],
+'المساعد التشخيصي (Claude AI)':['עוזר אבחון (Claude AI)','Diagnostic assistant (Claude AI)'],'تحليل الأعراض والتشخيص التفريقي':['ניתוח תסמינים ואבחנה מבדלת','Analyze symptoms & differential diagnosis'],'جاري التحليل...':['מנתח...','Analyzing...'],'التحليل والتشخيص التفريقي':['ניתוח ואבחנה מבדלת','Analysis & differential diagnosis'],'آخر تحليل':['ניתוח אחרון','Last analysis'],'قراءة الصورة الشعاعية':['קריאת הצילום','X-ray reading'],'تحليل بالذكاء الاصطناعي':['ניתוח AI','AI analysis'],'رأي مساعد بالذكاء الاصطناعي — القرار النهائي للطبيب المعالج.':['חוות דעת מסייעת של AI — ההחלטה הסופית של הרופא המטפל.','AI-assisted opinion — final decision rests with the treating doctor.'],
+'الذكاء الاصطناعي (Anthropic Claude)':['בינה מלאכותית (Anthropic Claude)','AI (Anthropic Claude)'],'مفتاح API':['מפתח API','API key'],'النموذج':['מודל','Model'],'اختبار الاتصال':['בדיקת חיבור','Test connection'],'المفتاح محفوظ':['המפתח נשמר','Key saved'],'الاتصال يعمل':['החיבור עובד','Connection works'],'أدخل مفتاح API في الإعدادات':['הזן מפתח API בהגדרות','Enter an API key in Settings'],
+'يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من':['מנתח תסמינים וצילומים ומציע אבחנה מבדלת עם מקורות מהימנים. דורש מפתח API מ-','Analyzes symptoms and X-rays and suggests a differential diagnosis with trusted references. Requires an API key from'],'. المفتاح يُحفظ في هذا المتصفح فقط.':['. המפתח נשמר בדפדפן זה בלבד.','. The key is stored only in this browser.'],
+'⚠️ التحليل الذكي أداة مساعدة للطبيب وليس تشخيصًا نهائيًا. صور المرضى تُرسل إلى خدمة Anthropic للتحليل — احصل على موافقة المريض واطّلع على سياسة الخصوصية.':['⚠️ הניתוח החכם הוא כלי עזר לרופא ולא אבחנה סופית. תמונות מטופלים נשלחות לשירות Anthropic — קבל הסכמת מטופל ועיין במדיניות הפרטיות.','⚠️ AI analysis is a doctor aid, not a final diagnosis. Patient images are sent to Anthropic for analysis — obtain patient consent and review the privacy policy.'],
 };
 (()=>{const strip=x=>{let i=0;while(i<x.length&&!/[\p{L}\p{N}]/u.test(x[i]))i++;return x.slice(i)};for(const [k,v] of Object.entries(L)){const ks=strip(k);if(ks!==k&&!L[ks])L[ks]=[strip(v[0]),strip(v[1])]}})();
 function tr(s){if(!L[s])return s;if(lang==='ar')return s;return L[s][lang==='he'?0:1]}
@@ -757,7 +841,7 @@ function startObserver(){obs=new MutationObserver(ms=>{if(lang==='ar')return;for
   obs.observe(document.body,{childList:true,subtree:true,characterData:true})}
 
 /* ---------- Init ---------- */
-(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);applyLock();startObserver();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
