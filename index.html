@@ -187,7 +187,7 @@ main{width:100%}
       <div id="lgCodeVal" style="font-size:1.8rem;font-weight:700;letter-spacing:4px;direction:ltr;margin:8px 0"></div>
       <div class="field"><input id="lgRecEmail" placeholder="بريد الطبيب (للاسترجاع)"></div>
       <div class="field"><input id="lgRecPhone" placeholder="هاتف الطبيب (واتساب)"></div>
-      <div class="row" style="justify-content:center"><button class="btn small" style="background:#25d366" onclick="sendRecovery('wa')">📲 واتساب</button><button class="btn small" onclick="sendRecovery('mail')">✉️ بريد</button></div>
+      <div class="row" style="justify-content:center"><button class="btn small secondary" onclick="copyRecCode()">📋 نسخ الرمز</button><button class="btn small" style="background:#25d366" onclick="sendRecovery('wa')">📲 واتساب</button><button class="btn small" onclick="sendRecovery('mail')">✉️ بريد</button></div>
       <button class="btn small secondary" style="margin-top:10px" onclick="enterApp()">حفظته — الدخول إلى النظام</button>
     </div>
     <div class="langsw"><button data-lang="ar" onclick="applyLang('ar')">العربية</button><button data-lang="he" onclick="applyLang('he')">עברית</button><button data-lang="en" onclick="applyLang('en')">English</button></div>
@@ -483,6 +483,7 @@ main{width:100%}
       <div>رمز الاسترجاع (صالح للاستخدام أكثر من مرة — احتفظ به في مكان آمن):</div>
       <div id="recCode" style="font-size:1.8rem;font-weight:700;letter-spacing:4px;direction:ltr;margin:8px 0"></div>
       <div class="row" style="justify-content:center">
+        <button class="btn small secondary" onclick="copyRecCode()">📋 نسخ الرمز</button>
         <button class="btn small" style="background:#25d366" onclick="sendRecovery('wa')">📲 إرسال إلى هاتف الطبيب</button>
         <button class="btn small" onclick="sendRecovery('mail')">✉️ إرسال إلى بريد الطبيب</button>
       </div>
@@ -889,11 +890,17 @@ async function delUser(u){const x=findUser(u);if(x&&(x.perms||defaultPerms(x.rol
   if(!confirm(tr('حذف المستخدم')+' '+u+'؟'))return;settings.users=users().filter(x=>x.u!==u);await put('settings',{...settings,id:'main'});toast(tr('تم الحذف'));renderUsers()}
 async function saveRecovery(){settings.recEmail=$('setRecEmail').value.trim();settings.recPhone=$('setRecPhone').value.trim();await put('settings',{...settings,id:'main'});toast(tr('تم الحفظ'));renderUsers()}
 async function genRecovery(){await saveRecovery();pendingRecCode=genCode();settings.recoveryHash=await sha(pendingRecCode.replace(/-/g,''));await put('settings',{...settings,id:'main'});$('recCode').textContent=pendingRecCode;$('recCodeBox').style.display='';renderUsers()}
-async function sendRecovery(how){const code=pendingRecCode;if(!code)return toast(tr('ولّد رمز استرجاع أولًا'));
-  if($('lgCodeShow').style.display!=='none'){const e=$('lgRecEmail').value.trim(),p=$('lgRecPhone').value.trim();if(e)settings.recEmail=e;if(p)settings.recPhone=p;if(e||p)await put('settings',{...settings,id:'main'})}
+function copyRecCode(){const code=pendingRecCode;if(!code)return toast(tr('ولّد رمز استرجاع أولًا'));
+  const done=()=>toast(tr('تم نسخ الرمز'));
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(done).catch(()=>legacyCopy(code,done))}else legacyCopy(code,done)}
+function legacyCopy(text,cb){try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);cb&&cb()}catch(e){toast(text)}}
+function sendRecovery(how){const code=pendingRecCode;if(!code)return toast(tr('ولّد رمز استرجاع أولًا'));
   const text=tr('رمز استرجاع كلمة المرور لنظام')+' '+tr(settings.name||'عيادة الأسنان')+': '+code+'\n'+tr('احتفظ به في مكان آمن ولا تشاركه.');
-  if(how==='wa'){const ph=waPhone(settings.recPhone||settings.phone);if(!ph)return toast(tr('أدخل هاتف الطبيب للاسترجاع أولًا'));window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(text),'_blank')}
-  else{const em=settings.recEmail||settings.email;if(!em)return toast(tr('أدخل بريد الطبيب للاسترجاع أولًا'));window.open('mailto:'+em+'?subject='+encodeURIComponent(tr('رمز استرجاع كلمة المرور'))+'&body='+encodeURIComponent(text))}}
+  let e='',p='';
+  if($('lgCodeShow').style.display!=='none'){e=$('lgRecEmail').value.trim();p=$('lgRecPhone').value.trim()}
+  if(how==='wa'){const ph=waPhone(p||settings.recPhone||settings.phone);if(!ph)return toast(tr('أدخل هاتف الطبيب للاسترجاع أولًا'));window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(text),'_blank')}
+  else{const em=e||settings.recEmail||settings.email;if(!em)return toast(tr('أدخل بريد الطبيب للاسترجاع أولًا'));window.open('mailto:'+em+'?subject='+encodeURIComponent(tr('رمز استرجاع كلمة المرور'))+'&body='+encodeURIComponent(text))}
+  if(e)settings.recEmail=e;if(p)settings.recPhone=p;if(e||p)put('settings',{...settings,id:'main'})}
 
 /* ---------- AI assistant (Anthropic) ---------- */
 const AI_SYS='أنت مساعد سريري لطبيب أسنان. حلّل المعطيات وقدّم: 1) ملخص الحالة، 2) التشخيص التفريقي مرتبًا بالاحتمال مع نسبة تقديرية لكل احتمال، 3) الفحوصات/الصور المقترحة لتأكيد التشخيص، 4) خطة علاج مبدئية، 5) علامات خطر تستدعي تحويلًا عاجلًا، 6) مراجع من جهات موثوقة (ADA, AAE, AAP, WHO, NICE, Cochrane, FDI) بأسماء الإرشادات. اكتب بلغة الطبيب (العربية إلا إذا كانت المعطيات بالعبرية أو الإنجليزية). كن دقيقًا ومختصرًا، واذكر صراحة أن القرار النهائي للطبيب المعالج وأن هذا رأي مساعد وليس تشخيصًا نهائيًا.';
@@ -997,7 +1004,7 @@ const L={
 '— أضف مريضًا أولًا —':['— הוסף מטופל תחילה —','— Add a patient first —'],'فتح الملف':['פתח תיק','Open file'],'فتح المواعيد':['פתח תורים','Open appointments'],'إغلاق':['סגור','Close'],
 '⏳ بانتظار التأكيد':['⏳ ממתין לאישור','⏳ Awaiting confirmation'],'✅ مؤكد':['✅ מאושר','✅ Confirmed'],'❌ اعتذر':['❌ ביטל','❌ Declined'],'🪑 حضر':['🪑 הגיע','🪑 Arrived'],'🚫 لم يحضر':['🚫 לא הגיע','🚫 No-show'],
 '📲 تذكير':['📲 תזכורת','📲 Remind'],'⏭ دورك قريب':['⏭ תורך מתקרב','⏭ Your turn soon'],'📲 تنبيه بالمبلغ':['📲 תזכורת יתרה','📲 Balance reminder'],'✔ أُرسل':['✔ נשלח','✔ Sent'],'تذكير بالموعد + طلب تأكيد':['תזכורת לתור + בקשת אישור','Appointment reminder + confirmation request'],'دورك قريب':['תורך מתקרב','Your turn is near'],'أُرسل تذكير':['נשלחה תזכורת','Reminder sent'],
-'تم الحفظ':['נשמר','Saved'],'تم الحذف':['נמחק','Deleted'],'تمت الإضافة':['נוסף','Added'],'تم حفظ المعاينة':['הבדיקה נשמרה','Exam saved'],'تم تسجيل الدفعة':['התשלום נרשם','Payment recorded'],'تم حفظ الموعد':['התור נשמר','Appointment saved'],'تم تحديث الحالة':['הסטטוס עודכן','Status updated'],'تم التصدير':['יוצא','Exported'],'تمت الاستعادة':['שוחזר','Restored'],
+'تم الحفظ':['נשמר','Saved'],'تم نسخ الرمز':['הקוד הועתק','Code copied'],'📋 نسخ الرمز':['📋 העתק קוד','📋 Copy code'],'تم الحذف':['נמחק','Deleted'],'تمت الإضافة':['נוסף','Added'],'تم حفظ المعاينة':['הבדיקה נשמרה','Exam saved'],'تم تسجيل الدفعة':['התשלום נרשם','Payment recorded'],'تم حفظ الموعد':['התור נשמר','Appointment saved'],'تم تحديث الحالة':['הסטטוס עודכן','Status updated'],'تم التصدير':['יוצא','Exported'],'تمت الاستعادة':['שוחזר','Restored'],
 'الاسم مطلوب':['נדרש שם','Name is required'],'أدخل المبلغ':['הזן סכום','Enter amount'],'اختر صورة أولًا':['בחר צילום תחילה','Choose an image first'],'اختر المريض والوقت':['בחר מטופל ושעה','Choose patient and time'],'اختر ملف النسخة':['בחר קובץ גיבוי','Choose a backup file'],'لا يوجد رقم هاتف للمريض':['אין מספר טלפון למטופל','Patient has no phone number'],
 'المتصفح لا يدعم التنبيهات':['הדפדפן אינו תומך בהתראות','Browser does not support notifications'],'تم تفعيل تنبيهات الجهاز':['התראות המכשיר הופעלו','Device notifications enabled'],'لم يتم منح الإذن':['לא ניתנה הרשאה','Permission not granted'],
 'حذف المريض وكل سجلاته وصوره؟':['למחוק את המטופל וכל הרשומות והצילומים שלו?','Delete this patient and all their records and images?'],'تأكيد الحذف؟':['לאשר מחיקה?','Confirm delete?'],'سيتم دمج البيانات من النسخة الاحتياطية. متابعة؟':['הנתונים מהגיבוי ימוזגו. להמשיך?','Data from the backup will be merged. Continue?'],
