@@ -65,6 +65,19 @@ tr:hover td{background:#f9fafb}
 .search{max-width:360px}
 .money{font-weight:700}
 .pos{color:var(--ok)}.neg{color:var(--danger)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px}
+.tiles.small{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:0}
+.tile{background:#fff;border-radius:14px;padding:18px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);border:2px solid transparent;transition:.15s;position:relative}
+.tile:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tile .ico{font-size:2rem;margin-bottom:6px}
+.tile .t{font-weight:700;font-size:1.05rem;color:var(--primary-dark)}
+.tile .d{font-size:.82rem;color:var(--muted);margin-top:2px}
+.tile .c{position:absolute;top:12px;left:12px;background:#e0f2fe;color:var(--primary-dark);border-radius:999px;padding:2px 10px;font-size:.8rem;font-weight:700}
+.tiles.small .tile{padding:14px;text-align:center}
+#alerts{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:70;display:flex;flex-direction:column;gap:10px;width:min(420px,92vw)}
+.alertbox{background:#fff;border:2px solid var(--warn);border-radius:12px;padding:14px 18px;box-shadow:0 8px 30px rgba(0,0,0,.25);animation:pop .3s}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.tiles.small .tile .ico{font-size:1.5rem}
 @media(max-width:600px){header{padding:12px}main{padding:0 10px}.tooth-grid{grid-template-columns:repeat(8,1fr)}}
 </style>
 </head>
@@ -72,10 +85,13 @@ tr:hover td{background:#f9fafb}
 <header>
   <h1 id="clinicTitle">🦷 عيادة الأسنان</h1>
   <nav>
-    <button data-view="dashboard" class="active">الرئيسية</button>
-    <button data-view="patients">المرضى</button>
-    <button data-view="appointments">المواعيد</button>
-    <button data-view="settings">الإعدادات</button>
+    <button data-view="dashboard" class="active">🏠 الرئيسية</button>
+    <button data-view="patients">👤 المرضى</button>
+    <button data-view="appointments">📅 المواعيد</button>
+    <button data-view="treatments">🦷 العلاج</button>
+    <button data-view="xrays">🩻 الأشعة</button>
+    <button data-view="payments">💳 الدفعات</button>
+    <button data-view="settings">⚙️ الإعدادات</button>
   </nav>
 </header>
 
@@ -88,13 +104,69 @@ tr:hover td{background:#f9fafb}
     <div class="card stat"><div class="num" id="stIncome">0</div><div class="lbl">إجمالي المدفوعات</div></div>
     <div class="card stat"><div class="num neg" id="stDue">0</div><div class="lbl">مبالغ مستحقة</div></div>
   </div>
+  <h2 style="margin:6px 0 10px">أقسام النظام</h2>
+  <div class="tiles">
+    <div class="tile" onclick="showView('patients')"><div class="ico">👤</div><div class="t">المرضى</div><div class="d">ملفات المرضى، البحث، المعاينة</div><div class="c" id="tlPatients"></div></div>
+    <div class="tile" onclick="showView('appointments')"><div class="ico">📅</div><div class="t">المواعيد</div><div class="d">اليوم، القادمة، السجل</div><div class="c" id="tlAps"></div></div>
+    <div class="tile" onclick="showView('treatments')"><div class="ico">🦷</div><div class="t">أقسام العلاج</div><div class="d">حشو، عصب، تقويم، زراعة…</div><div class="c" id="tlTreat"></div></div>
+    <div class="tile" onclick="showView('xrays')"><div class="ico">🩻</div><div class="t">صور الأشعة</div><div class="d">أرشيف الصور لكل المرضى</div><div class="c" id="tlXray"></div></div>
+    <div class="tile" onclick="showView('payments')"><div class="ico">💳</div><div class="t">الدفعات</div><div class="d">المدفوعات والمستحقات</div><div class="c" id="tlPay"></div></div>
+    <div class="tile" onclick="showView('settings')"><div class="ico">⚙️</div><div class="t">الإعدادات</div><div class="d">بيانات العيادة والنسخ الاحتياطي</div><div class="c"></div></div>
+  </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="row between"><h2>مواعيد اليوم</h2><button class="btn small" onclick="showView('appointments')">كل المواعيد</button></div>
+      <div id="todayList"></div>
+    </div>
+    <div class="card">
+      <div class="row between"><h2>آخر المرضى</h2><button class="btn small" onclick="openPatientForm()">+ مريض جديد</button></div>
+      <div id="recentPatients"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Treatments (global) -->
+<section id="view-treatments" class="view">
   <div class="card">
-    <div class="row between"><h2>مواعيد اليوم</h2><button class="btn small" onclick="showView('appointments')">كل المواعيد</button></div>
-    <div id="todayList"></div>
+    <h2>أقسام العلاج</h2>
+    <p style="color:var(--muted);margin-bottom:10px">اختر قسمًا لعرض كل الإجراءات المسجلة فيه لجميع المرضى.</p>
+    <div class="tiles small" id="treatCats"></div>
+  </div>
+  <div class="card" id="treatCatCard" style="display:none">
+    <div class="row between"><h2 id="treatCatTitle"></h2><button class="btn secondary small" onclick="renderTreatmentsView()">← كل الأقسام</button></div>
+    <div id="treatCatList"></div>
+  </div>
+</section>
+
+<!-- X-rays (global) -->
+<section id="view-xrays" class="view">
+  <div class="card">
+    <div class="row between">
+      <h2>أرشيف صور الأشعة</h2>
+      <select id="xrayFilter" onchange="renderXraysView()" style="max-width:260px"><option value="">كل المرضى</option></select>
+    </div>
+    <p style="color:var(--muted)">لإضافة صور: افتح ملف المريض ← تبويب صور الأشعة.</p>
+  </div>
+  <div id="xrayArchive"></div>
+</section>
+
+<!-- Payments (global) -->
+<section id="view-payments" class="view">
+  <div class="grid grid-4">
+    <div class="card stat"><div class="num" id="gpCost">0</div><div class="lbl">إجمالي تكلفة العلاج</div></div>
+    <div class="card stat"><div class="num pos" id="gpPaid">0</div><div class="lbl">إجمالي المدفوع</div></div>
+    <div class="card stat"><div class="num neg" id="gpDue">0</div><div class="lbl">إجمالي المستحق</div></div>
+    <div class="card stat"><div class="num" id="gpToday">0</div><div class="lbl">مدفوعات اليوم</div></div>
   </div>
   <div class="card">
-    <h2>آخر المرضى</h2>
-    <div id="recentPatients"></div>
+    <div class="tabs">
+      <button data-ptab="due" class="active" onclick="payTab('due',this)">مرضى عليهم مستحقات</button>
+      <button data-ptab="log" onclick="payTab('log',this)">سجل الدفعات</button>
+      <button data-ptab="month" onclick="payTab('month',this)">ملخص شهري</button>
+    </div>
+    <div id="ptab-due" class="ptab active"></div>
+    <div id="ptab-log" class="ptab" style="display:none"></div>
+    <div id="ptab-month" class="ptab" style="display:none"></div>
   </div>
 </section>
 
@@ -202,7 +274,24 @@ tr:hover td{background:#f9fafb}
     </div>
     <button class="btn" onclick="addAppointment()">حفظ الموعد</button>
   </div>
-  <div class="card"><h2>المواعيد القادمة</h2><div id="apList"></div></div>
+  <div class="card" id="notifCard">
+    <div class="row between">
+      <div><h2 style="margin:0">🔔 تنبيهات الطبيب</h2><div style="color:var(--muted);font-size:.88rem" id="notifStatus">يظهر تنبيه داخل النظام وعلى الجهاز قبل كل موعد.</div></div>
+      <button class="btn small" id="notifBtn" onclick="enableNotifications()">تفعيل تنبيهات الجهاز</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>💳 تنبيه المرضى بالمبلغ المتبقي قبل موعدهم</h2>
+    <div id="dueReminders"></div>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <button class="active" onclick="apTab('today',this)">اليوم</button>
+      <button onclick="apTab('upcoming',this)">القادمة</button>
+      <button onclick="apTab('past',this)">السابقة</button>
+    </div>
+    <div id="apList"></div>
+  </div>
 </section>
 
 <!-- Settings -->
@@ -215,6 +304,20 @@ tr:hover td{background:#f9fafb}
       <div class="field"><label>الهاتف</label><input id="setPhone"></div>
       <div class="field"><label>العملة</label><input id="setCurrency" placeholder="₪"></div>
     </div>
+    <button class="btn" onclick="saveSettings()">حفظ</button>
+  </div>
+  <div class="card">
+    <h2>🔔 إعدادات التنبيهات</h2>
+    <div class="grid grid-2">
+      <div class="field"><label>تنبيه الطبيب قبل الموعد بـ (دقائق)</label><input type="number" id="setRemindMin" min="5" placeholder="30"></div>
+      <div class="field"><label>رمز الدولة لواتساب (بدون +)</label><input id="setCountry" placeholder="972"></div>
+    </div>
+    <div class="field"><label>نص رسالة التذكير للمريض (متغيرات: {name} {clinic} {doctor} {date} {time})</label><textarea id="setMsgRemind"></textarea></div>
+    <div class="field"><label>نص رسالة "دورك قريب"</label><textarea id="setMsgTurn"></textarea></div>
+    <div class="grid grid-2">
+      <div class="field"><label>تنبيه المريض بالمبلغ المتبقي قبل الموعد بـ (أيام)</label><input type="number" id="setDueDays" min="1" placeholder="1"></div>
+    </div>
+    <div class="field"><label>نص رسالة المبلغ المتبقي (متغير إضافي: {due})</label><textarea id="setMsgDue"></textarea></div>
     <button class="btn" onclick="saveSettings()">حفظ</button>
   </div>
   <div class="card">
@@ -274,7 +377,7 @@ let settings={name:'عيادة الأسنان',doctor:'',phone:'',currency:'₪'
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money=n=>(Number(n)||0).toLocaleString('ar')+' '+settings.currency;
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function closeModal(id){$(id).classList.remove('open')}
 function age(dob){if(!dob)return'';const d=new Date(dob),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n<new Date(n.getFullYear(),d.getMonth(),d.getDate()))a--;return a+' سنة'}
@@ -282,17 +385,21 @@ function age(dob){if(!dob)return'';const d=new Date(dob),n=new Date();let a=n.ge
 /* ---------- Navigation ---------- */
 function showView(v){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-'+v).classList.add('active');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  if(v==='dashboard')renderDashboard();if(v==='patients')renderPatients();if(v==='appointments')renderAppointments();if(v==='settings')loadSettingsForm();window.scrollTo(0,0)}
+  if(v==='dashboard')renderDashboard();if(v==='patients')renderPatients();if(v==='appointments')renderAppointments();if(v==='settings')loadSettingsForm();
+  if(v==='treatments')renderTreatmentsView();if(v==='xrays')renderXraysView();if(v==='payments')renderPaymentsView();window.scrollTo(0,0)}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('tab-'+b.dataset.tab).classList.add('active')});
 
 /* ---------- Dashboard ---------- */
 async function renderDashboard(){
-  const [ps,pays,trs,aps]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments'),getAll('appointments')]);
+  const [ps,pays,trs,aps,xr]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments'),getAll('appointments'),getAll('xrays')]);
   const paid=pays.reduce((a,p)=>a+Number(p.amount||0),0), cost=trs.reduce((a,t)=>a+Number(t.cost||0),0);
   $('stPatients').textContent=ps.length;$('stIncome').textContent=money(paid);$('stDue').textContent=money(Math.max(cost-paid,0));
   const t=today();const todayAps=aps.filter(a=>(a.time||'').slice(0,10)===t).sort((a,b)=>a.time.localeCompare(b.time));
   $('stToday').textContent=todayAps.length;
+  $('tlPatients').textContent=ps.length;$('tlAps').textContent=aps.filter(a=>a.time>=t).length;$('tlTreat').textContent=trs.length;$('tlXray').textContent=xr.length;
+  const dueCount=ps.filter(p=>trs.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.cost||0),0)>pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0)).length;
+  $('tlPay').textContent=dueCount?dueCount+' مستحق':'';
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   $('todayList').innerHTML=todayAps.length?'<table><tr><th>الوقت</th><th>المريض</th><th>السبب</th></tr>'+todayAps.map(a=>`<tr><td>${a.time.slice(11,16)}</td><td><a href="#" onclick="openPatient('${a.patientId}');return false">${esc(pm[a.patientId]?.name||'—')}</a></td><td>${esc(a.reason)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد مواعيد اليوم</div>';
   const recent=[...ps].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,5);
@@ -362,24 +469,109 @@ async function renderPayments(){const [pays,trs]=await Promise.all([byPatient('p
   $('payList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظة</th><th></th></tr>'+l.map(p=>`<tr><td>${p.date}</td><td class="money pos">${money(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td><td><button class="btn danger small" onclick="delItem('payments','${p.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد دفعات</div>'}
 
 /* ---------- Appointments ---------- */
-async function renderAppointments(){const [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);
+async function renderAppointments(){const [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);updateNotifStatus();renderDueReminders();
   $('apPatient').innerHTML=ps.sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';
-  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const l=aps.sort((a,b)=>a.time.localeCompare(b.time));
-  $('apList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>الوقت</th><th>المريض</th><th>السبب</th><th></th></tr>'+l.map(a=>`<tr><td>${a.time.slice(0,10)}</td><td>${a.time.slice(11,16)}</td><td><a href="#" onclick="openPatient('${a.patientId}');return false">${esc(pm[a.patientId]?.name||'—')}</a></td><td>${esc(a.reason)}</td><td><button class="btn danger small" onclick="delAp('${a.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد مواعيد</div>'}
+  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const t=today();
+  let l=aps.filter(a=>apMode==='today'?a.time.slice(0,10)===t:apMode==='upcoming'?a.time.slice(0,10)>t:a.time.slice(0,10)<t);
+  l.sort((a,b)=>apMode==='past'?b.time.localeCompare(a.time):a.time.localeCompare(b.time));
+  $('apList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>الوقت</th><th>المريض</th><th>السبب</th><th>الحالة</th><th>تنبيه المريض</th><th></th></tr>'+l.map((a,i)=>{const p=pm[a.patientId]||{};const st=a.status||'pending';
+    return `<tr><td>${a.time.slice(0,10)}</td><td>${a.time.slice(11,16)}</td><td><a href="#" onclick="openPatient('${a.patientId}');return false">${esc(p.name||'—')}</a></td><td>${esc(a.reason)}</td>
+    <td><select onchange="setApStatus('${a.id}',this.value)" style="padding:4px 6px;font-size:.85rem;border-color:${AP_STATUS[st].c}">${Object.entries(AP_STATUS).map(([k,v])=>`<option value="${k}" ${k===st?'selected':''}>${v.l}</option>`).join('')}</select></td>
+    <td class="row" style="gap:4px"><button class="btn small" style="background:#25d366" title="تذكير بالموعد + طلب تأكيد" onclick="waRemind('${a.id}','remind')">📲 تذكير</button><button class="btn small" style="background:var(--warn)" title="دورك قريب" onclick="waRemind('${a.id}','turn')">⏭ دورك قريب</button>${a.reminded?'<span class="badge ok" title="أُرسل تذكير">✔</span>':''}</td>
+    <td><button class="btn danger small" onclick="delAp('${a.id}')">حذف</button></td></tr>`}).join('')+'</table>':'<div class="empty">لا توجد مواعيد في هذا القسم</div>'}
+let apMode='today';
+const AP_STATUS={pending:{l:'⏳ بانتظار التأكيد',c:'#f59e0b'},confirmed:{l:'✅ مؤكد',c:'#16a34a'},declined:{l:'❌ اعتذر',c:'#dc2626'},arrived:{l:'🪑 حضر',c:'#0e7490'},noshow:{l:'🚫 لم يحضر',c:'#6b7280'}};
+async function setApStatus(id,st){const a=await get('appointments',id);a.status=st;await put('appointments',a);toast('تم تحديث الحالة');renderAppointments()}
+function waPhone(ph){let d=String(ph||'').replace(/\D/g,'');if(!d)return'';const cc=(settings.country||'972').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);else if(d.startsWith('0'))d=cc+d.slice(1);else if(!d.startsWith(cc)&&d.length<=10)d=cc+d;return d}
+async function waRemind(id,kind){const a=await get('appointments',id);const p=await get('patients',a.patientId);if(!p)return;const ph=waPhone(p.phone);if(!ph)return toast('لا يوجد رقم هاتف للمريض');
+  const d=new Date(a.time);const date=d.toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'}),time=a.time.slice(11,16);
+  const clinic=settings.name||'عيادة الأسنان',doc=settings.doctor?' مع '+settings.doctor:'';
+  let msg=kind==='turn'?(settings.msgTurn||DEF_TURN):kind==='due'?(settings.msgDue||DEF_DUE):(settings.msgRemind||DEF_REMIND);
+  let due='';if(kind==='due'){const [trs,pays]=await Promise.all([byPatient('treatments',p.id),byPatient('payments',p.id)]);due=money(trs.reduce((x,t)=>x+Number(t.cost||0),0)-pays.reduce((x,t)=>x+Number(t.amount||0),0))}
+  msg=msg.replace('{name}',p.name).replace('{clinic}',clinic).replace('{doctor}',doc).replace('{date}',date).replace('{time}',time).replace('{due}',due);
+  window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
+  if(kind==='due')a.dueReminded=true;else a.reminded=true;await put('appointments',a);renderAppointments()}
+
+/* ---------- Balance reminders before appointment ---------- */
+async function renderDueReminders(){const [aps,ps,trs,pays]=await Promise.all([getAll('appointments'),getAll('patients'),getAll('treatments'),getAll('payments')]);
+  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const now=Date.now(),days=Number(settings.dueDays)||1;
+  const rows=aps.filter(a=>{const t=new Date(a.time).getTime();return t>now&&t-now<=days*86400000+86400000&&!['declined','arrived','noshow'].includes(a.status)}).map(a=>{const c=trs.filter(x=>x.patientId===a.patientId).reduce((s,x)=>s+Number(x.cost||0),0),pd=pays.filter(x=>x.patientId===a.patientId).reduce((s,x)=>s+Number(x.amount||0),0);return{a,p:pm[a.patientId]||{},due:c-pd}}).filter(r=>r.due>0).sort((x,y)=>x.a.time.localeCompare(y.a.time));
+  const el=$('dueReminders');if(!el)return;
+  el.innerHTML=rows.length?'<table><tr><th>الموعد</th><th>المريض</th><th>المتبقي عليه</th><th></th></tr>'+rows.map(r=>`<tr><td>${r.a.time.slice(0,10)} ${r.a.time.slice(11,16)}</td><td><a href="#" onclick="openPatient('${r.p.id}');return false">${esc(r.p.name||'—')}</a></td><td class="money neg">${money(r.due)}</td><td><button class="btn small" style="background:#25d366" onclick="waRemind('${r.a.id}','due')">📲 تنبيه بالمبلغ</button> ${r.a.dueReminded?'<span class="badge ok">✔ أُرسل</span>':''}</td></tr>`).join('')+'</table>':'<div class="empty" style="padding:12px">لا يوجد مرضى عليهم مستحقات في مواعيد الأيام القادمة</div>';
+  return rows}
+
+/* ---------- Doctor notifications ---------- */
+const notified=new Set();
+async function enableNotifications(){if(!('Notification' in window))return toast('المتصفح لا يدعم التنبيهات');const r=await Notification.requestPermission();updateNotifStatus();toast(r==='granted'?'تم تفعيل تنبيهات الجهاز':'لم يتم منح الإذن')}
+function updateNotifStatus(){if(!$('notifStatus'))return;const ok=('Notification' in window)&&Notification.permission==='granted';$('notifStatus').textContent=ok?`✅ مفعّلة — تنبيه قبل الموعد بـ ${settings.remindMin||30} دقيقة (والنظام مفتوح).`:'يظهر تنبيه داخل النظام وعلى الجهاز قبل كل موعد. اضغط لتفعيل تنبيهات الجهاز.';if($('notifBtn'))$('notifBtn').style.display=ok?'none':''}
+async function checkReminders(){if(!db)return;const aps=await getAll('appointments');const ps=await getAll('patients');const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  const now=Date.now(),win=(Number(settings.remindMin)||30)*60000;
+  for(const a of aps){if(notified.has(a.id)||['arrived','declined','noshow'].includes(a.status))continue;const t=new Date(a.time).getTime();
+    if(t-now<=win&&t-now>-5*60000){notified.add(a.id);const p=pm[a.patientId]||{};const text=`موعد ${p.name||''} الساعة ${a.time.slice(11,16)} — ${a.reason||''}`;
+      showAlert('🔔 موعد قريب',text,a);if('Notification' in window&&Notification.permission==='granted'){try{new Notification('🔔 موعد قريب — '+(settings.name||'العيادة'),{body:text,tag:a.id})}catch(e){}}}}}
+function showAlert(title,text,a){const box=document.createElement('div');box.className='alertbox';box.innerHTML=`<b>${title}</b><div>${esc(text)}</div><div class="row" style="margin-top:8px"><button class="btn small" onclick="this.closest('.alertbox').remove();showView('appointments')">فتح المواعيد</button><button class="btn secondary small" onclick="this.closest('.alertbox').remove()">إغلاق</button></div>`;let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);try{beep()}catch(e){}}
+function beep(){const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.frequency.value=1100},150);setTimeout(()=>{o.stop();c.close()},400)}
+setInterval(checkReminders,60000);
+function apTab(m,btn){apMode=m;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));renderAppointments()}
+
+/* ---------- Global: Treatments by category ---------- */
+const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':'🩺','خلع':'🔧','تركيبات (تاج/جسر)':'👑','زراعة':'🌱','تقويم':'📐','تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
+async function renderTreatmentsView(cat){
+  const [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  const cats=[...$('trType').options].map(o=>o.value);
+  $('treatCats').innerHTML=cats.map(c=>{const l=trs.filter(t=>t.type===c);const sum=l.reduce((a,t)=>a+Number(t.cost||0),0);
+    return `<div class="tile" onclick="renderTreatmentsView('${c}')"><div class="ico">${TREAT_ICONS[c]||'📋'}</div><div class="t">${c}</div><div class="d">${l.length} إجراء • ${money(sum)}</div></div>`}).join('');
+  if(!cat){$('treatCatCard').style.display='none';return}
+  const l=trs.filter(t=>t.type===cat).sort((a,b)=>b.date.localeCompare(a.date));
+  $('treatCatCard').style.display='block';$('treatCatTitle').textContent=(TREAT_ICONS[cat]||'')+' '+cat+' ('+l.length+')';
+  $('treatCatList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>المريض</th><th>السن</th><th>التفاصيل</th><th>التكلفة</th></tr>'+l.map(t=>`<tr><td>${t.date}</td><td><a href="#" onclick="openPatient('${t.patientId}');return false">${esc(pm[t.patientId]?.name||'—')}</a></td><td>${esc(t.tooth)}</td><td>${esc(t.notes)}</td><td class="money">${money(t.cost)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد إجراءات في هذا القسم بعد</div>';
+  $('treatCatCard').scrollIntoView({behavior:'smooth'})}
+
+/* ---------- Global: X-ray archive ---------- */
+async function renderXraysView(){
+  const [xr,ps]=await Promise.all([getAll('xrays'),getAll('patients')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  const sel=$('xrayFilter');const cur=sel.value;sel.innerHTML='<option value="">كل المرضى</option>'+ps.sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');sel.value=cur;
+  const l=xr.filter(x=>!cur||x.patientId===cur).sort((a,b)=>b.id.localeCompare(a.id));
+  if(!l.length){$('xrayArchive').innerHTML='<div class="card empty">لا توجد صور أشعة</div>';return}
+  const groups={};l.forEach(x=>{(groups[x.patientId]=groups[x.patientId]||[]).push(x)});
+  $('xrayArchive').innerHTML=Object.entries(groups).map(([pid,imgs])=>`<div class="card"><div class="row between"><h2>${esc(pm[pid]?.name||'—')} <span class="badge ok">${imgs.length} صورة</span></h2><button class="btn small" onclick="openPatient('${pid}')">فتح الملف</button></div><div class="xrays">${imgs.map(x=>`<div class="xray"><img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')"><div class="meta">${x.date} ${esc(x.note)}</div></div>`).join('')}</div></div>`).join('')}
+
+/* ---------- Global: Payments ---------- */
+let payMode='due';
+function payTab(m,btn){payMode=m;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));document.querySelectorAll('.ptab').forEach(x=>x.style.display='none');$('ptab-'+m).style.display='block';renderPaymentsView()}
+async function renderPaymentsView(){
+  const [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  const cost=trs.reduce((a,t)=>a+Number(t.cost||0),0),paid=pays.reduce((a,p)=>a+Number(p.amount||0),0),t=today();
+  $('gpCost').textContent=money(cost);$('gpPaid').textContent=money(paid);$('gpDue').textContent=money(Math.max(cost-paid,0));$('gpToday').textContent=money(pays.filter(p=>p.date===t).reduce((a,p)=>a+Number(p.amount||0),0));
+  const rows=ps.map(p=>{const c=trs.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.cost||0),0),pd=pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0);return{p,c,pd,due:c-pd}}).filter(r=>r.due>0).sort((a,b)=>b.due-a.due);
+  $('ptab-due').innerHTML=rows.length?'<table><tr><th>المريض</th><th>الهاتف</th><th>التكلفة</th><th>المدفوع</th><th>المتبقي</th><th></th></tr>'+rows.map(r=>`<tr><td><b>${esc(r.p.name)}</b></td><td>${esc(r.p.phone||'')}</td><td>${money(r.c)}</td><td class="pos">${money(r.pd)}</td><td class="money neg">${money(r.due)}</td><td><button class="btn small" onclick="openPatient('${r.p.id}')">تسجيل دفعة</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد مستحقات — الجميع مسدد ✔</div>';
+  const log=[...pays].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+  $('ptab-log').innerHTML=log.length?'<table><tr><th>التاريخ</th><th>المريض</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظة</th></tr>'+log.map(p=>`<tr><td>${p.date}</td><td><a href="#" onclick="openPatient('${p.patientId}');return false">${esc(pm[p.patientId]?.name||'—')}</a></td><td class="money pos">${money(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد دفعات</div>';
+  const months={};pays.forEach(p=>{const m=p.date.slice(0,7);months[m]=months[m]||{n:0,sum:0};months[m].n++;months[m].sum+=Number(p.amount||0)});
+  const ml=Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0]));
+  $('ptab-month').innerHTML=ml.length?'<table><tr><th>الشهر</th><th>عدد الدفعات</th><th>الإجمالي</th></tr>'+ml.map(([m,v])=>`<tr><td>${m}</td><td>${v.n}</td><td class="money pos">${money(v.sum)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>'}
 async function addAppointment(){const pid=$('apPatient').value,t=$('apTime').value;if(!pid||!t)return toast('اختر المريض والوقت');
   await put('appointments',{id:uid(),patientId:pid,time:t,reason:$('apReason').value.trim()});$('apReason').value='';toast('تم حفظ الموعد');renderAppointments()}
 async function delAp(id){await del('appointments',id);renderAppointments()}
 
 /* ---------- Settings & backup ---------- */
 async function loadSettings(){const s=await get('settings','main');if(s)settings={...settings,...s};$('clinicTitle').textContent='🦷 '+settings.name;document.title=settings.name}
-function loadSettingsForm(){$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency}
-async function saveSettings(){settings={id:'main',name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪'};await put('settings',settings);await loadSettings();toast('تم الحفظ')}
+const DEF_REMIND='مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor}:\n📅 {date}\n⏰ الساعة {time}\n\nهل ستتمكن من الحضور؟ الرجاء الرد بـ "نعم" للتأكيد أو "لا" لإعادة الجدولة. شكرًا 🙏';
+const DEF_TURN='مرحبًا {name}، دورك في {clinic} قريب جدًا 🦷\nالرجاء التوجه إلى العيادة الآن.';
+const DEF_DUE='مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\n💳 المبلغ المتبقي عليك: {due}\nيرجى تجهيزه قبل الموعد. شكرًا 🙏';
+function loadSettingsForm(){$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
+  $('setRemindMin').value=settings.remindMin||30;$('setCountry').value=settings.country||'972';$('setMsgRemind').value=settings.msgRemind||DEF_REMIND;$('setMsgTurn').value=settings.msgTurn||DEF_TURN;
+  $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF_DUE}
+async function saveSettings(){settings={id:'main',name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
+  remindMin:Number($('setRemindMin').value)||30,country:$('setCountry').value.trim()||'972',msgRemind:$('setMsgRemind').value.trim()||DEF_REMIND,msgTurn:$('setMsgTurn').value.trim()||DEF_TURN,
+  dueDays:Number($('setDueDays').value)||1,msgDue:$('setMsgDue').value.trim()||DEF_DUE};await put('settings',settings);await loadSettings();updateNotifStatus();toast('تم الحفظ')}
 async function exportData(){const out={};for(const s of STORES)out[s]=await getAll(s);const b=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dental-backup-'+today()+'.json';a.click();toast('تم التصدير')}
 async function importData(){const f=$('importFile').files[0];if(!f)return toast('اختر ملف النسخة');if(!confirm('سيتم دمج البيانات من النسخة الاحتياطية. متابعة؟'))return;
   const data=JSON.parse(await f.text());for(const s of STORES)for(const o of(data[s]||[]))await put(s,o);await loadSettings();toast('تمت الاستعادة');showView('dashboard')}
 
 /* ---------- Init ---------- */
-(async()=>{await openDB();await loadSettings();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()})();
+(async()=>{await openDB();await loadSettings();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+  setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert('💳 تذكير بالمستحقات',`${new Set(rows.map(r=>r.p.id)).size} مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.`)}},1500)})();
 </script>
 </body>
 </html>
