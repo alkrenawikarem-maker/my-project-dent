@@ -1,0 +1,16 @@
+{
+  "name": "نظام إدارة عيادة الأسنان",
+  "short_name": "عيادة الأسنان",
+  "description": "نظام إدارة عيادة أسنان يعمل بدون إنترنت — مرضى، معاينات، علاج، أشعة، مواعيد ودفعات",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0e7490",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
