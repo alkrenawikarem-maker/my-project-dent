@@ -7,11 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="عيادة الأسنان">
+<meta name="apple-mobile-web-app-title" content="Dentivo">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<title>نظام إدارة عيادة الأسنان</title>
+<title>Dentivo — نظام إدارة عيادة الأسنان</title>
 <script>try{var __t=localStorage.getItem('theme')||((window.matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',__t)}catch(e){}</script>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -28,6 +28,8 @@ body{font-family:'Cairo','Heebo',system-ui,sans-serif;background:var(--bg);color
 :focus-visible{outline:2px solid var(--primary-light);outline-offset:2px}
 header{position:sticky;top:0;z-index:40;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.18)}
 header h1{font-size:1.25rem;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.brandwrap{display:flex;flex-direction:column;line-height:1.2}
+.poweredby{font-size:.6rem;font-weight:700;letter-spacing:.14em;opacity:.8}
 nav{display:flex;gap:6px;flex-wrap:wrap}
 nav button{background:rgba(255,255,255,.14);border:0;color:#fff;padding:8px 14px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:.95rem;transition:background var(--transition),color var(--transition),transform .1s}
 nav button:active{transform:scale(.96)}
@@ -114,6 +116,20 @@ tr:hover td{background:var(--subtle-bg)}
 #alerts{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:70;display:flex;flex-direction:column;gap:10px;width:min(420px,92vw)}
 .alertbox{background:var(--card);border:2px solid var(--warn);border-radius:var(--radius);padding:14px 18px;box-shadow:var(--shadow-lg);animation:pop .3s}
 @keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.calwrap{overflow-x:auto}
+.calgrid{display:flex;min-width:760px;border:1px solid var(--card-border);border-radius:var(--radius-sm);overflow:hidden}
+.caltimecol{flex:0 0 54px;background:var(--subtle-bg);border-inline-end:1px solid var(--card-border)}
+.caldays{flex:1;display:flex}
+.calday{flex:1;position:relative;border-inline-end:1px solid var(--card-border)}
+.calday:last-child{border-inline-end:0}
+.calday-head{text-align:center;padding:8px 4px;font-size:.78rem;font-weight:700;color:var(--heading);background:var(--subtle-bg);border-bottom:1px solid var(--card-border);line-height:1.4}
+.calday-head span{font-weight:400;color:var(--muted)}
+.calday-today .calday-head{background:var(--ai-bg);color:var(--primary-dark)}
+.calday-body{position:relative;background-image:repeating-linear-gradient(to bottom,var(--card-border) 0,var(--card-border) 1px,transparent 1px,transparent 56px)}
+.calhour{font-size:.72rem;color:var(--muted);padding:2px 6px;box-sizing:border-box;border-bottom:1px solid var(--card-border)}
+.calblock{position:absolute;inset-inline:3px;min-height:30px;border-radius:6px;color:#fff;font-size:.72rem;padding:3px 6px;overflow:hidden;cursor:pointer;box-shadow:var(--shadow-sm);transition:var(--transition)}
+.calblock:hover{filter:brightness(1.08);box-shadow:var(--shadow-md)}
+.calblock b{display:block;font-size:.7rem}
 .tiles.small .tile .ico{font-size:1.3rem;width:38px;height:38px;margin:0 auto 8px}
 .pbar{max-width:1100px;margin:14px auto 0;padding:0 16px}
 .pbar .in{background:var(--card);border:2px solid var(--accent);border-radius:var(--radius);padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:var(--shadow-sm)}
@@ -148,6 +164,8 @@ tr:hover td{background:var(--subtle-bg)}
 .login .lbox{background:var(--card);border-radius:var(--radius-lg);padding:28px 26px;width:100%;max-width:400px;max-height:94vh;overflow-y:auto;overflow-x:hidden;box-shadow:0 24px 70px rgba(0,0,0,.35);animation:pop .3s;position:relative}
 .login .lbox::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent))}
 .login .logo{font-size:3rem;text-align:center}
+.brandmark{text-align:center;font-weight:800;font-size:1.5rem;letter-spacing:.02em;background:linear-gradient(90deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent;margin:2px 0 2px}
+.brandmark small{display:block;font-weight:600;font-size:.62rem;letter-spacing:.15em;color:var(--muted);-webkit-text-fill-color:var(--muted)}
 .login h2{text-align:center;margin-bottom:4px}
 .login .sub{text-align:center;color:var(--muted);font-size:.9rem;margin-bottom:16px}
 .login .err{color:var(--danger);font-size:.9rem;min-height:1.3em;margin:6px 0}
@@ -217,6 +235,7 @@ main{width:100%}
 <div class="login" id="loginScreen">
   <div class="lbox" id="loginBox">
     <div class="logo">🦷</div>
+    <div class="brandmark">Dentivo<small>DENTAL CLINIC SYSTEM</small></div>
     <h2 id="loginTitle">تسجيل الدخول</h2>
     <div class="sub" id="loginSub">أدخل اسم المستخدم وكلمة المرور للدخول إلى النظام</div>
     <div class="field"><label>اسم المستخدم</label><input id="lgUser" autocomplete="username"></div>
@@ -240,7 +259,7 @@ main{width:100%}
   </div>
 </div>
 <header>
-  <h1 id="clinicTitle">🦷 عيادة الأسنان</h1>
+  <div class="brandwrap"><h1 id="clinicTitle">🦷 عيادة الأسنان</h1><span class="poweredby">DENTIVO</span></div>
   <nav>
     <button data-view="dashboard" class="active">🏠 الرئيسية</button>
     <button data-view="patients">👤 المرضى</button>
@@ -488,8 +507,17 @@ main{width:100%}
       <button class="active" onclick="apTab('today',this)">اليوم</button>
       <button onclick="apTab('upcoming',this)">القادمة</button>
       <button onclick="apTab('past',this)">السابقة</button>
+      <button onclick="apTab('calendar',this)">📅 تقويم أسبوعي</button>
     </div>
     <div id="apList"></div>
+    <div id="apCalendar" style="display:none">
+      <div class="row between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <button class="btn small secondary" onclick="calNav(-1)">◀ الأسبوع السابق</button>
+        <div id="calRangeLbl" style="font-weight:700"></div>
+        <button class="btn small secondary" onclick="calNav(1)">الأسبوع التالي ▶</button>
+      </div>
+      <div class="calwrap"><div id="calGrid" class="calgrid"></div></div>
+    </div>
   </div>
 </section>
 
@@ -755,6 +783,8 @@ async function renderPayments(){const [pays,trs]=await Promise.all([byPatient('p
 async function renderAppointments(){let [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);aps=byActive(aps);updateNotifStatus();renderDueReminders();
   $('apPatient').innerHTML=byActive(ps).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';if(AP())$('apPatient').value=AP();
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const t=today();
+  $('apList').style.display=apMode==='calendar'?'none':'';$('apCalendar').style.display=apMode==='calendar'?'block':'none';
+  if(apMode==='calendar'){renderApCalendar(aps,pm);return}
   let l=aps.filter(a=>apMode==='today'?a.time.slice(0,10)===t:apMode==='upcoming'?a.time.slice(0,10)>t:a.time.slice(0,10)<t);
   l.sort((a,b)=>apMode==='past'?b.time.localeCompare(a.time):a.time.localeCompare(b.time));
   $('apList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>الوقت</th><th>المريض</th><th>السبب</th><th>الحالة</th><th>تنبيه المريض</th><th></th></tr>'+l.map((a,i)=>{const p=pm[a.patientId]||{};const st=a.status||'pending';
@@ -796,6 +826,36 @@ function showAlert(title,text,a){const box=document.createElement('div');box.cla
 function beep(){const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.frequency.value=1100},150);setTimeout(()=>{o.stop();c.close()},400)}
 setInterval(checkReminders,60000);
 function apTab(m,btn){apMode=m;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));renderAppointments()}
+
+/* ---------- Weekly calendar (grid) view ---------- */
+let calWeekOffset=0;const CAL_START_H=8,CAL_END_H=20,CAL_ROWH=56;
+function calNav(d){calWeekOffset+=d;renderAppointments()}
+function calWeekDates(){const now=new Date();now.setHours(0,0,0,0);const day=now.getDay();const start=new Date(now);start.setDate(now.getDate()-day+calWeekOffset*7);
+  return Array.from({length:7},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d})}
+function renderApCalendar(aps,pm){
+  const days=calWeekDates();const fmtISO=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  $('calRangeLbl').textContent=days[0].toLocaleDateString(LANGS[lang].locale,{day:'numeric',month:'short'})+' – '+days[6].toLocaleDateString(LANGS[lang].locale,{day:'numeric',month:'short',year:'numeric'});
+  const hourRows=[];for(let h=CAL_START_H;h<CAL_END_H;h++)hourRows.push(h);
+  const bodyH=hourRows.length*CAL_ROWH;
+  const dayCols=days.map(d=>{const iso=fmtISO(d);const dayAps=aps.filter(a=>a.time.slice(0,10)===iso);
+    const blocks=dayAps.map(a=>{const hh=+a.time.slice(11,13),mm=+a.time.slice(14,16);
+      let top=(hh-CAL_START_H)*CAL_ROWH+(mm/60*CAL_ROWH);top=Math.max(0,Math.min(top,bodyH-30));
+      const st=a.status||'pending';const p=pm[a.patientId]||{};
+      return `<div class="calblock" style="top:${top}px;background:${AP_STATUS[st].c}" onclick="calOpenAp('${a.id}')"><b>${a.time.slice(11,16)}</b> ${esc(p.name||'—')}</div>`}).join('');
+    const isToday=iso===today();
+    return `<div class="calday${isToday?' calday-today':''}"><div class="calday-head">${d.toLocaleDateString(LANGS[lang].locale,{weekday:'short'})}<br><span>${d.getDate()}/${d.getMonth()+1}</span></div><div class="calday-body" style="height:${bodyH}px">${blocks}</div></div>`}).join('');
+  $('calGrid').innerHTML=`<div class="caltimecol"><div class="calday-head">&nbsp;</div>${hourRows.map(h=>`<div class="calhour" style="height:${CAL_ROWH}px">${String(h).padStart(2,'0')}:00</div>`).join('')}</div><div class="caldays">${dayCols}</div>`}
+async function calOpenAp(id){const a=await get('appointments',id);if(!a)return;const p=await get('patients',a.patientId)||{};const st=a.status||'pending';
+  const box=document.createElement('div');box.className='alertbox';
+  box.innerHTML=`<b>${esc(p.name||'—')}</b><div style="margin:6px 0">${a.time.slice(0,10)} ${a.time.slice(11,16)} — ${esc(a.reason||'')}</div>
+    <div class="field"><label>الحالة</label><select id="calStSel">${Object.entries(AP_STATUS).map(([k,v])=>`<option value="${k}" ${k===st?'selected':''}>${v.l}</option>`).join('')}</select></div>
+    <div class="row" style="margin-top:8px;gap:6px">
+      <button class="btn small" onclick="openPatient('${a.patientId}');this.closest('.alertbox').remove()">فتح الملف</button>
+      <button class="btn small danger" onclick="delAp('${a.id}');this.closest('.alertbox').remove()">حذف</button>
+      <button class="btn small secondary" onclick="this.closest('.alertbox').remove()">إغلاق</button>
+    </div>`;
+  let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);
+  box.querySelector('#calStSel').onchange=e=>{setApStatus(a.id,e.target.value);box.remove()}}
 
 /* ---------- Global: Treatments by category ---------- */
 const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':'🩺','خلع':'🔧','تركيبات (تاج/جسر)':'👑','زراعة':'🌱','تقويم':'📐','تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
