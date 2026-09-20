@@ -677,26 +677,45 @@ main{width:100%}
 <div class="modal" id="imgModal" onclick="closeModal('imgModal')"><div class="box img"><img id="imgBig"></div></div>
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
-/* ---------- IndexedDB ---------- */
-const DB_NAME='dentalClinicDB', DB_VER=2;
+/* ---------- Cloud database (Firebase Firestore) — replaces local IndexedDB so all devices share the same data ---------- */
+const DB_NAME='dentalClinicDB', DB_VER=2; // legacy local database name — kept only to migrate old local data into the cloud once
 const STORES=['patients','treatments','xrays','payments','appointments','settings','feedback'];
-let db;
-function openDB(ver){return new Promise((res,rej)=>{
-  let r;try{r=ver?indexedDB.open(DB_NAME,ver):indexedDB.open(DB_NAME)}catch(e){return rej(e)}
-  r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s)){const st=d.createObjectStore(s,{keyPath:'id'});if(s!=='patients'&&s!=='settings'&&s!=='feedback')st.createIndex('patientId','patientId');}})};
-  r.onblocked=()=>{dbFatal('يرجى إغلاق النوافذ الأخرى المفتوحة على النظام ثم إعادة التحميل')};
-  r.onsuccess=e=>{db=e.target.result;db.onversionchange=()=>{db.close();location.reload()};
-    const missing=STORES.filter(x=>!db.objectStoreNames.contains(x));if(missing.length){const v=db.version+1;db.close();return openDB(v).then(res,rej)}res()};
-  r.onerror=()=>{if(r.error&&r.error.name==='VersionError'){openDB(null).then(res,rej)}else rej(r.error)};
-})}
+const firebaseConfig={apiKey:"AIzaSyDlN61dcvTUYLEHgNrn0LIID3H59jrPeic",authDomain:"dentivo-7f675.firebaseapp.com",projectId:"dentivo-7f675",storageBucket:"dentivo-7f675.firebasestorage.app",messagingSenderId:"221252626595",appId:"1:221252626595:web:c502ed01f3b0d38fb2f716"};
+firebase.initializeApp(firebaseConfig);
+const fdb=firebase.firestore();
+try{fdb.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}
 function dbFatal(m){let b=$('dbErr');if(!b){b=document.createElement('div');b.id='dbErr';b.style.cssText='position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:12px;text-align:center;z-index:99;font-weight:700';document.body.appendChild(b)}b.textContent='⚠️ '+m}
-const tx=(s,m='readonly')=>db.transaction(s,m).objectStore(s);
-const put=(s,o)=>new Promise((res,rej)=>{if(!db)return rej(new Error('DB not open'));const r=tx(s,'readwrite').put(o);r.onsuccess=()=>res(o);r.onerror=()=>rej(r.error)}).catch(e=>{toast('⚠️ فشل الحفظ: '+(e&&e.message||e));throw e});
-const del=(s,id)=>new Promise((res,rej)=>{const r=tx(s,'readwrite').delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
-const getAll=(s)=>new Promise((res,rej)=>{const r=tx(s).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-const get=(s,id)=>new Promise((res,rej)=>{const r=tx(s).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-const byPatient=(s,pid)=>new Promise((res,rej)=>{const r=tx(s).index('patientId').getAll(pid);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+async function ensureCloudAuth(){if(firebase.auth().currentUser)return;await firebase.auth().signInAnonymously()}
+async function migrateLegacyToCloud(){
+  if(localStorage.getItem('cloudMigrated'))return;
+  try{
+    const already=await get('settings','main');
+    if(already){localStorage.setItem('cloudMigrated','1');return}
+    const legacyDb=await new Promise(res=>{
+      let r;try{r=indexedDB.open(DB_NAME,DB_VER)}catch(e){return res(null)}
+      r.onupgradeneeded=()=>{};r.onsuccess=e=>res(e.target.result);r.onerror=()=>res(null)
+    });
+    if(!legacyDb){localStorage.setItem('cloudMigrated','1');return}
+    let any=false;
+    for(const s of STORES){
+      if(!legacyDb.objectStoreNames.contains(s))continue;
+      const rows=await new Promise((res,rej)=>{const r=legacyDb.transaction(s).objectStore(s).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+      for(const row of rows){any=true;await fdb.collection(s).doc(String(row.id)).set(row)}
+    }
+    legacyDb.close();
+    localStorage.setItem('cloudMigrated','1');
+    if(any)setTimeout(()=>toast('☁️ '+tr('تم نقل بياناتك المحلية إلى السحابة بنجاح')),1000);
+  }catch(e){console.warn('cloud migration skipped:',e)}
+}
+const put=(s,o)=>fdb.collection(s).doc(String(o.id)).set(o).then(()=>o).catch(e=>{toast('⚠️ فشل الحفظ: '+(e&&e.message||e));throw e});
+const del=(s,id)=>fdb.collection(s).doc(String(id)).delete();
+const getAll=(s)=>fdb.collection(s).get().then(qs=>qs.docs.map(d=>d.data()));
+const get=(s,id)=>fdb.collection(s).doc(String(id)).get().then(d=>d.exists?d.data():undefined);
+const byPatient=(s,pid)=>fdb.collection(s).where('patientId','==',pid).get().then(qs=>qs.docs.map(d=>d.data()));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
 /* ---------- Helpers ---------- */
@@ -774,7 +793,7 @@ async function openPatient(id){currentId=id;currentP=await get('patients',id);if
   $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&tr('ملف:')+' '+currentP.fileNo,currentP.idNum&&tr('هوية:')+' '+currentP.idNum,currentP.phone,currentP.gender,age(currentP.dob),currentP.address].filter(Boolean).join(' • ');
   const ex=currentP.exam||{};$('exMedical').value=ex.medical||'';$('exAllergy').value=ex.allergy||'';$('exComplaint').value=ex.complaint||'';$('exNotes').value=ex.notes||'';
   renderTeeth();renderTreatChart();$('trDate').value=today();$('payDate').value=today();$('aiSymOut').innerHTML='';if(currentP.aiSymptoms)aiRender($('aiSymOut'),'🧠 '+tr('آخر تحليل')+' ('+currentP.aiSymptoms.date+')',currentP.aiSymptoms.text);
-  await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);applyLock();window.scrollTo(0,0)}
+  await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);applyLock(true);window.scrollTo(0,0)}
 const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometric',cbct:'CBCT',ct:'CT',photo:'صورة فوتوغرافية',other:'أخرى'};
 const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',other:'📁'};
 const XK_ORDER=Object.keys(XK);
@@ -812,7 +831,12 @@ async function renderTreatments(){const l=(await byPatient('treatments',currentI
 async function delItem(s,id){if(!confirm(tr('تأكيد الحذف؟')))return;await del(s,id);toast(tr('تم الحذف'));renderTreatments();renderXrays();renderPayments()}
 
 /* X-rays */
-function readImg(file){return new Promise(res=>{const img=new Image(),r=new FileReader();r.onload=()=>{img.onload=()=>{const max=1600,sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.85))};img.src=r.result};r.readAsDataURL(file)})}
+function readImg(file){return new Promise(res=>{const img=new Image(),r=new FileReader();r.onload=()=>{img.onload=()=>{const max=1600,sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  const LIMIT=850000; // stay safely under Firestore's ~1MB per-document cap
+  let q=.85,out=c.toDataURL('image/jpeg',q);
+  while(out.length>LIMIT&&q>0.3){q-=0.1;out=c.toDataURL('image/jpeg',q)}
+  if(out.length>LIMIT){const c2=document.createElement('canvas');c2.width=c.width*.7;c2.height=c.height*.7;c2.getContext('2d').drawImage(c,0,0,c2.width,c2.height);out=c2.toDataURL('image/jpeg',.6)}
+  res(out)};img.src=r.result};r.readAsDataURL(file)})}
 async function addXray(){const files=[...$('xrayFile').files];if(!files.length)return toast(tr('اختر صورة أولًا'));
   for(const f of files){const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:$('xrayKind').value,note:$('xrayNote').value.trim(),data})}
   $('xrayFile').value='';$('xrayNote').value='';toast(tr('تم رفع')+' '+files.length+' '+tr('صورة'));renderXrays()}
@@ -867,7 +891,7 @@ async function renderDueReminders(){let [aps,ps,trs,pays]=await Promise.all([get
 const notified=new Set();
 async function enableNotifications(){if(!('Notification' in window))return toast(tr('المتصفح لا يدعم التنبيهات'));const r=await Notification.requestPermission();updateNotifStatus();toast(r==='granted'?'تم تفعيل تنبيهات الجهاز':'لم يتم منح الإذن')}
 function updateNotifStatus(){if(!$('notifStatus'))return;const ok=('Notification' in window)&&Notification.permission==='granted';$('notifStatus').textContent=ok?'✅ '+tr('مفعّلة — تنبيه قبل الموعد بـ')+' '+(settings.remindMin||30)+' '+tr('دقيقة (والنظام مفتوح).'):tr('يظهر تنبيه داخل النظام وعلى الجهاز قبل كل موعد. اضغط لتفعيل تنبيهات الجهاز.');if($('notifBtn'))$('notifBtn').style.display=ok?'none':''}
-async function checkReminders(){if(!db)return;const aps=await getAll('appointments');const ps=await getAll('patients');const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+async function checkReminders(){const aps=await getAll('appointments');const ps=await getAll('patients');const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const now=Date.now(),win=(Number(settings.remindMin)||30)*60000;
   for(const a of aps){if(notified.has(a.id)||['arrived','declined','noshow'].includes(a.status))continue;const t=new Date(a.time).getTime();
     if(t-now<=win&&t-now>-5*60000){notified.add(a.id);const p=pm[a.patientId]||{};const text=`${tr('موعد')} ${p.name||''} ${tr('الساعة')} ${a.time.slice(11,16)} — ${a.reason||''}`;
@@ -960,7 +984,7 @@ async function toggleLock(){
   if(!settings.pinHash){if(curUser&&perm('clinical')){const p=prompt(tr('أدخل كلمة مرور حسابك'));if(p===null)return;if(await uhash(curUser.u,p)===curUser.h){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}applyLock();toast(tr('مرحبًا دكتور'))}else toast(tr('رمز غير صحيح'));return}
     toast(tr('هذا القسم غير متاح لحسابك'));return}
   const p=prompt(tr('أدخل الرمز السري للطبيب'));if(p===null)return;if(await sha(p)===settings.pinHash){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}applyLock();toast(tr('مرحبًا دكتور'))}else toast(tr('رمز غير صحيح'))}
-function applyLock(){const L_=isLocked();const has=!!settings.pinHash||!!curUser;
+function applyLock(skipReopen){const L_=isLocked();const has=!!settings.pinHash||!!curUser;
   $('lockBox').style.display=has?'':'none';document.querySelectorAll('.doc-only').forEach(c=>c.style.display=L_?'none':'');
   document.querySelectorAll('.mgr-only').forEach(c=>c.style.display=(curUser&&perm('manageUsers'))?'':'none');$('lockState').textContent=L_?'🔒 '+tr('وضع الاستقبال'):'🔓 '+tr('وضع الطبيب');$('lockBtn').textContent=L_?tr('دخول الطبيب'):tr('قفل');
   document.querySelectorAll('nav button[data-view=treatments],nav button[data-view=xrays]').forEach(b=>b.style.display=L_?'none':'');
@@ -968,7 +992,7 @@ function applyLock(){const L_=isLocked();const has=!!settings.pinHash||!!curUser
   document.querySelectorAll('.tabs button[data-tab=exam],.tabs button[data-tab=treat],.tabs button[data-tab=xray]').forEach(b=>b.style.display=L_?'none':'');
   if(L_){const cur=document.querySelector('.view.active');if(cur&&(cur.id==='view-treatments'||cur.id==='view-xrays'))showView('dashboard');
     if($('view-patient').classList.contains('active')){document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const b=document.querySelector('.tabs button[data-tab=pay]');if(b){b.classList.add('active');$('tab-pay').classList.add('active')}}}
-  else{const v=document.querySelector('.view.active');if(v){const id=v.id.replace('view-','');if(id==='patient'&&currentId)openPatient(currentId);else showView(id)}}
+  else{const v=document.querySelector('.view.active');if(v){const id=v.id.replace('view-','');if(id==='patient'&&currentId){if(!skipReopen)openPatient(currentId)}else showView(id)}}
   refreshPinState()}
 function refreshPinState(){if($('pinState'))$('pinState').textContent=settings.pinHash?'✅ '+tr('القفل مفعّل'):tr('غير مفعّل')}
 async function savePin(){const v=$('setPin').value.trim();if(v&&v.length<4)return toast(tr('الرمز 4 أرقام على الأقل'));
@@ -1249,7 +1273,7 @@ window.addEventListener('online',updateNetStatus);window.addEventListener('offli
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 
 /* ---------- Init ---------- */
-(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);applyTheme(theme);startObserver();await authGate();applyLock();renderDashboard();updateNetStatus();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{try{await ensureCloudAuth();await migrateLegacyToCloud()}catch(e){dbFatal('تعذر الاتصال بقاعدة البيانات السحابية: '+(e&&e.message||e)+' — تأكد من الاتصال بالإنترنت (أول استخدام يحتاج إنترنت، وبعدها يعمل النظام حتى بدون اتصال) وأعد التحميل');return}await loadSettings();await refreshPicker();applyLang(lang);applyTheme(theme);startObserver();await authGate();applyLock();renderDashboard();updateNetStatus();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
