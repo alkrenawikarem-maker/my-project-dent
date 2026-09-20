@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="عيادة الأسنان">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>نظام إدارة عيادة الأسنان</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -126,6 +129,7 @@ tr:hover td{background:#f9fafb}
 .who button{background:rgba(255,255,255,.9);color:var(--danger);border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;font-weight:700}
 .role{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
 .role.doctor{background:#e0f2fe;color:var(--primary-dark)}.role.reception{background:#fef3c7;color:#b45309}.role.manager{background:#ede9fe;color:#6d28d9}
+.net-badge{background:#7c2d12;color:#fff;border-radius:8px;padding:5px 12px;font-size:.82rem;font-weight:700;animation:pop .3s}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 main{width:100%}
 .card,.modal .box{max-width:100%}
@@ -148,7 +152,7 @@ main{width:100%}
   .btn.small{font-size:16px;padding:8px 12px}
   nav{width:100%;justify-content:flex-start}
   nav button{padding:8px 10px;font-size:.85rem;flex:1 1 auto;text-align:center}
-  .langsw,.lock,.who{font-size:.8rem}
+  .langsw,.lock,.who,.net-badge{font-size:.8rem}
   .grid-4,.grid-2{grid-template-columns:1fr 1fr}
   .tiles{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
   .tiles.small{grid-template-columns:repeat(2,1fr)}
@@ -204,6 +208,7 @@ main{width:100%}
     <button data-view="payments">💳 الدفعات</button>
     <button data-view="settings">⚙️ الإعدادات</button>
   </nav>
+  <span class="net-badge" id="netStatus" style="display:none">🔌 غير متصل — العمل والحفظ مستمر محليًا</span>
   <div class="langsw"><button data-lang="ar" onclick="applyLang('ar')">العربية</button><button data-lang="he" onclick="applyLang('he')">עברית</button><button data-lang="en" onclick="applyLang('en')">English</button></div>
   <div class="lock" id="lockBox"><span id="lockState">🔒 وضع الاستقبال</span><button id="lockBtn" onclick="toggleLock()">دخول الطبيب</button></div>
   <div class="who" id="whoBox" style="display:none"><span id="whoName"></span><button onclick="logout()">خروج</button></div>
@@ -940,7 +945,11 @@ async function renderFeedback(){const l=(await getAll('feedback')).sort((a,b)=>b
 async function delFb(id){await del('feedback',id);renderFeedback()}
 
 /* ---------- Settings & backup ---------- */
-async function loadSettings(){const s=await get('settings','main');if(s)settings={...settings,...s};$('clinicTitle').textContent='🦷 '+tr(settings.name);document.title=tr(settings.name)}
+async function loadSettings(){const s=await get('settings','main');if(s)settings={...settings,...s};
+  if(settings.users&&settings.users.length&&!settings.users.some(u=>(u.perms||defaultPerms(u.role)).manageUsers&&u.active!==false)){
+    const first=settings.users.find(u=>u.active!==false)||settings.users[0];first.role='manager';first.perms=defaultPerms('manager');
+    await put('settings',{...settings,id:'main'})}
+  $('clinicTitle').textContent='🦷 '+tr(settings.name);document.title=tr(settings.name)}
 const DEFS={
  remind:{ar:'مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor}:\n📅 {date}\n⏰ الساعة {time}\n\nهل ستتمكن من الحضور؟ الرجاء الرد بـ "نعم" للتأكيد أو "لا" لإعادة الجدولة. شكرًا 🙏',
   he:'שלום {name} 👋\nתזכורת לתור שלך ב{clinic}{doctor}:\n📅 {date}\n⏰ בשעה {time}\n\nהאם תוכל/י להגיע? אנא השב/י "כן" לאישור או "לא" לתיאום מחדש. תודה 🙏',
@@ -1004,7 +1013,7 @@ const L={
 '— أضف مريضًا أولًا —':['— הוסף מטופל תחילה —','— Add a patient first —'],'فتح الملف':['פתח תיק','Open file'],'فتح المواعيد':['פתח תורים','Open appointments'],'إغلاق':['סגור','Close'],
 '⏳ بانتظار التأكيد':['⏳ ממתין לאישור','⏳ Awaiting confirmation'],'✅ مؤكد':['✅ מאושר','✅ Confirmed'],'❌ اعتذر':['❌ ביטל','❌ Declined'],'🪑 حضر':['🪑 הגיע','🪑 Arrived'],'🚫 لم يحضر':['🚫 לא הגיע','🚫 No-show'],
 '📲 تذكير':['📲 תזכורת','📲 Remind'],'⏭ دورك قريب':['⏭ תורך מתקרב','⏭ Your turn soon'],'📲 تنبيه بالمبلغ':['📲 תזכורת יתרה','📲 Balance reminder'],'✔ أُرسل':['✔ נשלח','✔ Sent'],'تذكير بالموعد + طلب تأكيد':['תזכורת לתור + בקשת אישור','Appointment reminder + confirmation request'],'دورك قريب':['תורך מתקרב','Your turn is near'],'أُرسل تذكير':['נשלחה תזכורת','Reminder sent'],
-'تم الحفظ':['נשמר','Saved'],'تم نسخ الرمز':['הקוד הועתק','Code copied'],'📋 نسخ الرمز':['📋 העתק קוד','📋 Copy code'],'تم الحذف':['נמחק','Deleted'],'تمت الإضافة':['נוסף','Added'],'تم حفظ المعاينة':['הבדיקה נשמרה','Exam saved'],'تم تسجيل الدفعة':['התשלום נרשם','Payment recorded'],'تم حفظ الموعد':['התור נשמר','Appointment saved'],'تم تحديث الحالة':['הסטטוס עודכן','Status updated'],'تم التصدير':['יוצא','Exported'],'تمت الاستعادة':['שוחזר','Restored'],
+'تم الحفظ':['נשמר','Saved'],'تم نسخ الرمز':['הקוד הועתק','Code copied'],'📋 نسخ الرمز':['📋 העתק קוד','📋 Copy code'],'غير متصل — العمل والحفظ مستمر محليًا':['לא מחובר — העבודה והשמירה ממשיכות באופן מקומי','Offline — work and saving continue locally'],'تم الحذف':['נמחק','Deleted'],'تمت الإضافة':['נוסף','Added'],'تم حفظ المعاينة':['הבדיקה נשמרה','Exam saved'],'تم تسجيل الدفعة':['התשלום נרשם','Payment recorded'],'تم حفظ الموعد':['התור נשמר','Appointment saved'],'تم تحديث الحالة':['הסטטוס עודכן','Status updated'],'تم التصدير':['יוצא','Exported'],'تمت الاستعادة':['שוחזר','Restored'],
 'الاسم مطلوب':['נדרש שם','Name is required'],'أدخل المبلغ':['הזן סכום','Enter amount'],'اختر صورة أولًا':['בחר צילום תחילה','Choose an image first'],'اختر المريض والوقت':['בחר מטופל ושעה','Choose patient and time'],'اختر ملف النسخة':['בחר קובץ גיבוי','Choose a backup file'],'لا يوجد رقم هاتف للمريض':['אין מספר טלפון למטופל','Patient has no phone number'],
 'المتصفح لا يدعم التنبيهات':['הדפדפן אינו תומך בהתראות','Browser does not support notifications'],'تم تفعيل تنبيهات الجهاز':['התראות המכשיר הופעלו','Device notifications enabled'],'لم يتم منح الإذن':['לא ניתנה הרשאה','Permission not granted'],
 'حذف المريض وكل سجلاته وصوره؟':['למחוק את המטופל וכל הרשומות והצילומים שלו?','Delete this patient and all their records and images?'],'تأكيد الحذف؟':['לאשר מחיקה?','Confirm delete?'],'سيتم دمج البيانات من النسخة الاحتياطية. متابعة؟':['הנתונים מהגיבוי ימוזגו. להמשיך?','Data from the backup will be merged. Continue?'],
@@ -1068,8 +1077,14 @@ function applyLang(l){lang=l;try{localStorage.setItem('lang',l)}catch(e){}
 function startObserver(){obs=new MutationObserver(ms=>{if(lang==='ar')return;for(const m of ms){if(m.type==='characterData')translateNode(m.target);else m.addedNodes.forEach(n=>translateNode(n))}});
   obs.observe(document.body,{childList:true,subtree:true,characterData:true})}
 
+/* ---------- Offline support (PWA) ---------- */
+function updateNetStatus(){const el=$('netStatus');if(!el)return;
+  if(navigator.onLine){el.style.display='none'}else{el.style.display='';el.textContent='🔌 '+tr('غير متصل — العمل والحفظ مستمر محليًا')}}
+window.addEventListener('online',updateNetStatus);window.addEventListener('offline',updateNetStatus);
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
+
 /* ---------- Init ---------- */
-(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);startObserver();await authGate();applyLock();renderDashboard();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{try{await openDB(DB_VER)}catch(e){dbFatal('تعذر فتح قاعدة البيانات في هذا المتصفح: '+(e&&e.message||e)+' — جرّب متصفح Chrome بدون وضع التصفح الخفي');return}await loadSettings();await refreshPicker();applyLang(lang);startObserver();await authGate();applyLock();renderDashboard();updateNetStatus();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
