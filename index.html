@@ -99,6 +99,17 @@ tr:hover td{background:var(--subtle-bg)}
 .tooth-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin:8px 0}
 .tooth{border:1px solid var(--border);border-radius:5px;text-align:center;font-size:.72rem;padding:5px 0;cursor:pointer;background:var(--input-bg);color:var(--text);transition:background var(--transition)}
 .tooth.sel{background:var(--primary);color:#fff}
+.odontogram{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.odontogram .arch{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.odontogram .divider{height:2px;background:var(--border);border-radius:1px;margin:0 20%}
+.tooth-mini{min-width:36px;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px 2px 3px;cursor:pointer;background:var(--input-bg);font-size:.68rem;transition:var(--transition);scroll-margin-top:80px}
+.tooth-mini:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.tooth-mini.picked{outline:2px solid var(--primary);outline-offset:1px}
+.tooth-mini .n{font-weight:700;display:block;color:var(--text)}
+.tooth-mini .ic{display:block;font-size:.75rem;margin-top:1px;line-height:1}
+.treatcats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.treatcats button{border:1px solid var(--border);background:var(--subtle-bg);color:var(--text);border-radius:var(--radius-sm);padding:6px 10px;font-size:.78rem;cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:4px}
+.treatcats button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .tooth.done{background:#dcfce7}
 .search{max-width:360px}
 .money{font-weight:700}
@@ -430,16 +441,34 @@ main{width:100%}
 
     <div id="tab-treat" class="tab">
       <div class="card subtle">
+        <h3>مخطط الأسنان — اضغط على السن لتحديده للعلاج</h3>
+        <div class="odontogram" id="treatToothChart"></div>
+      </div>
+      <div class="card subtle">
         <h3>إضافة إجراء علاجي</h3>
+        <div class="treatcats" id="treatCatsBar">
+          <button type="button" class="active" onclick="pickTreatType('فحص وتشخيص',this)">🔍 فحص وتشخيص</button>
+          <button type="button" onclick="pickTreatType('تنظيف وتلميع',this)">✨ تنظيف وتلميع</button>
+          <button type="button" onclick="pickTreatType('حشو',this)">🦷 حشو</button>
+          <button type="button" onclick="pickTreatType('علاج عصب',this)">🩺 علاج عصب</button>
+          <button type="button" onclick="pickTreatType('خلع',this)">🔧 خلع</button>
+          <button type="button" onclick="pickTreatType('تركيبات (تاج/جسر)',this)">👑 تركيبات (تاج/جسر)</button>
+          <button type="button" onclick="pickTreatType('زراعة',this)">🌱 زراعة</button>
+          <button type="button" onclick="pickTreatType('تقويم',this)">📐 تقويم</button>
+          <button type="button" onclick="pickTreatType('تبييض',this)">⚪ تبييض</button>
+          <button type="button" onclick="pickTreatType('علاج لثة',this)">🌸 علاج لثة</button>
+          <button type="button" onclick="pickTreatType('أطفال',this)">🧒 أطفال</button>
+          <button type="button" onclick="pickTreatType('أخرى',this)">📋 أخرى</button>
+        </div>
         <div class="grid grid-2">
           <div class="field"><label>التاريخ</label><input type="date" id="trDate"></div>
           <div class="field"><label>القسم</label>
-            <select id="trType">
+            <select id="trType" onchange="syncTreatCatFromType()">
               <option value="فحص وتشخيص">فحص وتشخيص</option><option value="تنظيف وتلميع">تنظيف وتلميع</option><option value="حشو">حشو</option><option value="علاج عصب">علاج عصب</option>
               <option value="خلع">خلع</option><option value="تركيبات (تاج/جسر)">تركيبات (تاج/جسر)</option><option value="زراعة">زراعة</option><option value="تقويم">تقويم</option>
               <option value="تبييض">تبييض</option><option value="علاج لثة">علاج لثة</option><option value="أطفال">أطفال</option><option value="أخرى">أخرى</option>
             </select></div>
-          <div class="field"><label>رقم السن</label><input id="trTooth" placeholder="مثال: 16"></div>
+          <div class="field"><label>رقم السن</label><input id="trTooth" placeholder="مثال: 16" oninput="renderTreatChart()"></div>
           <div class="field"><label>التكلفة</label><input type="number" id="trCost" min="0" placeholder="0"></div>
         </div>
         <div class="field"><label>التفاصيل</label><textarea id="trNotes"></textarea></div>
@@ -739,7 +768,7 @@ async function openPatient(id){currentId=id;currentP=await get('patients',id);if
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-patient').classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==='patients'));
   $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&tr('ملف:')+' '+currentP.fileNo,currentP.phone,currentP.gender,age(currentP.dob),currentP.address].filter(Boolean).join(' • ');
   const ex=currentP.exam||{};$('exMedical').value=ex.medical||'';$('exAllergy').value=ex.allergy||'';$('exComplaint').value=ex.complaint||'';$('exNotes').value=ex.notes||'';
-  renderTeeth();$('trDate').value=today();$('payDate').value=today();$('aiSymOut').innerHTML='';if(currentP.aiSymptoms)aiRender($('aiSymOut'),'🧠 '+tr('آخر تحليل')+' ('+currentP.aiSymptoms.date+')',currentP.aiSymptoms.text);
+  renderTeeth();renderTreatChart();$('trDate').value=today();$('payDate').value=today();$('aiSymOut').innerHTML='';if(currentP.aiSymptoms)aiRender($('aiSymOut'),'🧠 '+tr('آخر تحليل')+' ('+currentP.aiSymptoms.date+')',currentP.aiSymptoms.text);
   await Promise.all([renderTreatments(),renderXrays(),renderPayments()]);applyLock();window.scrollTo(0,0)}
 const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometric',cbct:'CBCT',ct:'CT',photo:'صورة فوتوغرافية',other:'أخرى'};
 const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',other:'📁'};
@@ -749,6 +778,20 @@ function xrayFolders(list,delBtn){const g={};list.forEach(x=>{const k=XK[x.kind]
 const TEETH=[18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
 function renderTeeth(){const sel=new Set(currentP.teeth||[]);$('toothChart').innerHTML=TEETH.map(n=>`<div class="tooth ${sel.has(n)?'sel':''}" onclick="toggleTooth(${n})">${n}</div>`).join('')}
 function toggleTooth(n){const s=new Set(currentP.teeth||[]);s.has(n)?s.delete(n):s.add(n);currentP.teeth=[...s];renderTeeth()}
+
+/* ---------- Visual odontogram for treatment tab (like Bina/Optima chart) ---------- */
+const TOOTH_COLORS={'خلع':'#6b7280','علاج عصب':'#dc2626','حشو':'#3b82f6','تركيبات (تاج/جسر)':'#f59e0b','زراعة':'#10b981','تنظيف وتلميع':'#06b6d4','تقويم':'#8b5cf6','تبييض':'#94a3b8','علاج لثة':'#ec4899','أطفال':'#f472b6','فحص وتشخيص':'#94a3b8','أخرى':'#94a3b8'};
+async function renderTreatChart(){if(!$('treatToothChart'))return;
+  const trs=await byPatient('treatments',currentId);const latest={};
+  trs.forEach(t=>{const n=(t.tooth||'').trim();if(!n)return;if(!latest[n]||t.date>=latest[n].date)latest[n]=t});
+  const cur=$('trTooth')?$('trTooth').value.trim():'';
+  const mk=n=>{const t=latest[n];const c=t?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t?(TREAT_ICONS[t.type]||'🦷'):'';
+    return `<div class="tooth-mini${cur===String(n)?' picked':''}" style="${c?`border-bottom:3px solid ${c}`:''}" onclick="pickTreatTooth(${n})" title="${t?esc(tr(t.type)):''}"><span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}</div>`};
+  const upper=TEETH.slice(0,16),lower=TEETH.slice(16);
+  $('treatToothChart').innerHTML=`<div class="arch">${upper.map(mk).join('')}</div><div class="divider"></div><div class="arch">${lower.map(mk).join('')}</div>`}
+function pickTreatTooth(n){if($('trTooth'))$('trTooth').value=n;renderTreatChart()}
+function pickTreatType(cat,btn){if($('trType'))$('trType').value=cat;if(btn&&btn.parentElement)btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn))}
+function syncTreatCatFromType(){const v=$('trType').value;const bar=$('treatCatsBar');if(!bar)return;bar.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.textContent.trim().endsWith(v)))}
 async function saveExam(){currentP.exam={medical:$('exMedical').value,allergy:$('exAllergy').value,complaint:$('exComplaint').value,notes:$('exNotes').value};await put('patients',currentP);toast(tr('تم حفظ المعاينة'))}
 async function deletePatient(){if(!confirm(tr('حذف المريض وكل سجلاته وصوره؟')))return;
   for(const s of['treatments','xrays','payments','appointments']){const items=await byPatient(s,currentId);for(const i of items)await del(s,i.id)}
@@ -758,7 +801,8 @@ async function deletePatient(){if(!confirm(tr('حذف المريض وكل سجل
 async function addTreatment(){const t={id:uid(),patientId:currentId,date:$('trDate').value||today(),type:$('trType').value,tooth:$('trTooth').value.trim(),cost:Number($('trCost').value)||0,notes:$('trNotes').value.trim()};
   await put('treatments',t);$('trTooth').value='';$('trCost').value='';$('trNotes').value='';toast(tr('تمت الإضافة'));renderTreatments();renderPayments()}
 async function renderTreatments(){const l=(await byPatient('treatments',currentId)).sort((a,b)=>b.date.localeCompare(a.date));
-  $('treatList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>القسم</th><th>السن</th><th>التفاصيل</th><th>التكلفة</th><th></th></tr>'+l.map(t=>`<tr><td>${t.date}</td><td>${esc(t.type)}</td><td>${esc(t.tooth)}</td><td>${esc(t.notes)}</td><td class="money">${money(t.cost)}</td><td><button class="btn danger small" onclick="delItem('treatments','${t.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد إجراءات مسجلة</div>'}
+  $('treatList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>القسم</th><th>السن</th><th>التفاصيل</th><th>التكلفة</th><th></th></tr>'+l.map(t=>`<tr><td>${t.date}</td><td>${(TREAT_ICONS[t.type]||'')+' '+esc(tr(t.type))}</td><td>${esc(t.tooth)}</td><td>${esc(t.notes)}</td><td class="money">${money(t.cost)}</td><td><button class="btn danger small" onclick="delItem('treatments','${t.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد إجراءات مسجلة</div>';
+  renderTreatChart()}
 async function delItem(s,id){if(!confirm(tr('تأكيد الحذف؟')))return;await del(s,id);toast(tr('تم الحذف'));renderTreatments();renderXrays();renderPayments()}
 
 /* X-rays */
