@@ -56,6 +56,10 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.75}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--ring)}
 textarea{min-height:70px;resize:vertical}
 .field{margin-bottom:12px}
+.pwd-wrap{position:relative}
+.pwd-wrap input{padding-inline-end:38px}
+.pwd-toggle{position:absolute;top:50%;transform:translateY(-50%);inset-inline-end:8px;background:none;border:0;cursor:pointer;font-size:1.05rem;line-height:1;padding:4px;color:var(--muted);box-shadow:none}
+.pwd-toggle:hover{color:var(--text)}
 .btn{background:var(--primary);color:#fff;border:0;padding:9px 16px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;font-size:.95rem;font-weight:600;box-shadow:var(--shadow-sm);transition:background var(--transition),transform .1s,box-shadow var(--transition)}
 .btn:hover{background:var(--primary-dark);box-shadow:var(--shadow-md)}
 .btn:active{transform:scale(.97)}
@@ -250,9 +254,9 @@ main{width:100%}
     <h2 id="loginTitle">تسجيل الدخول</h2>
     <div class="sub" id="loginSub">أدخل اسم المستخدم وكلمة المرور للدخول إلى النظام</div>
     <div class="field"><label>اسم المستخدم</label><input id="lgUser" autocomplete="username"></div>
-    <div class="field"><label>كلمة المرور</label><input type="password" id="lgPass" autocomplete="current-password"></div>
+    <div class="field"><label>كلمة المرور</label><div class="pwd-wrap"><input type="password" id="lgPass" autocomplete="current-password"><button type="button" class="pwd-toggle" onclick="togglePwd('lgPass',this)">👁️</button></div></div>
     <div class="field" id="lgCodeBox" style="display:none"><label>رمز الاسترجاع</label><input id="lgCode" style="direction:ltr;letter-spacing:3px" autocomplete="one-time-code"></div>
-    <div class="field" id="lgConfirmBox" style="display:none"><label>تأكيد كلمة المرور</label><input type="password" id="lgPass2" autocomplete="new-password"></div>
+    <div class="field" id="lgConfirmBox" style="display:none"><label>تأكيد كلمة المرور</label><div class="pwd-wrap"><input type="password" id="lgPass2" autocomplete="new-password"><button type="button" class="pwd-toggle" onclick="togglePwd('lgPass2',this)">👁️</button></div></div>
     <label id="lgRememberBox" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="lgRemember" style="width:auto"> <span>تذكرني على هذا الجهاز</span></label>
     <div class="err" id="lgErr"></div>
     <button class="btn" id="lgBtn" onclick="doAuth()">دخول</button>
@@ -569,7 +573,7 @@ main{width:100%}
     <h3>إضافة مستخدم</h3>
     <div class="grid grid-2">
       <div class="field"><label>اسم المستخدم</label><input id="nuUser" autocomplete="off"></div>
-      <div class="field"><label>كلمة المرور (6 أحرف أو أكثر)</label><input type="password" id="nuPass" autocomplete="new-password"></div>
+      <div class="field"><label>كلمة المرور (6 أحرف أو أكثر)</label><div class="pwd-wrap"><input type="password" id="nuPass" autocomplete="new-password"><button type="button" class="pwd-toggle" onclick="togglePwd('nuPass',this)">👁️</button></div></div>
       <div class="field"><label>الصلاحية</label><select id="nuRole"><option value="reception">استقبال</option><option value="doctor">طبيب</option><option value="manager">مدير</option></select></div>
     </div>
     <button class="btn" onclick="addUser()">إضافة المستخدم</button>
@@ -600,7 +604,7 @@ main{width:100%}
     <h2>🔐 حماية البيانات الطبية (الطبيب فقط)</h2>
     <p style="color:var(--muted);margin-bottom:10px">عند تفعيل الرمز السري تُخفى المعاينة والتشخيص وأقسام العلاج وصور الأشعة والتحليل الذكي عن موظفي الاستقبال، وتبقى المواعيد والدفعات وبيانات الاتصال متاحة.</p>
     <div class="grid grid-2">
-      <div class="field"><label>الرمز السري للطبيب (4 أرقام أو أكثر)</label><input type="password" id="setPin" placeholder="اتركه فارغًا لإلغاء القفل"></div>
+      <div class="field"><label>الرمز السري للطبيب (4 أرقام أو أكثر)</label><div class="pwd-wrap"><input type="password" id="setPin" placeholder="اتركه فارغًا لإلغاء القفل"><button type="button" class="pwd-toggle" onclick="togglePwd('setPin',this)">👁️</button></div></div>
       <div class="field"><label>قفل تلقائي بعد (دقائق بدون نشاط)</label><input type="number" id="setLockMin" min="1" placeholder="15"></div>
     </div>
     <button class="btn" onclick="savePin()">حفظ الرمز</button>
@@ -610,7 +614,7 @@ main{width:100%}
     <h2>🤖 الذكاء الاصطناعي (Anthropic Claude)</h2>
     <p style="color:var(--muted);margin-bottom:10px">يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. المفتاح يُحفظ في هذا المتصفح فقط.</p>
     <div class="grid grid-2">
-      <div class="field"><label>مفتاح API</label><input type="password" id="setAiKey" placeholder="sk-ant-..."></div>
+      <div class="field"><label>مفتاح API</label><div class="pwd-wrap"><input type="password" id="setAiKey" placeholder="sk-ant-..."><button type="button" class="pwd-toggle" onclick="togglePwd('setAiKey',this)">👁️</button></div></div>
       <div class="field"><label>النموذج</label><select id="setAiModel"><option value="claude-sonnet-5">claude-sonnet-5 (موصى به)</option><option value="claude-opus-5">claude-opus-5 (أدق وأغلى)</option><option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (أسرع وأرخص)</option></select></div>
     </div>
     <div class="row"><button class="btn" onclick="saveAi()">حفظ</button><button class="btn secondary" onclick="testAi()">اختبار الاتصال</button><span id="aiState" style="color:var(--muted)"></span></div>
@@ -984,7 +988,7 @@ function authMode(m){authModeV=m;const setup=m==='setup',rec=m==='recover';
   $('lgConfirmBox').style.display=(setup||rec)?'':'none';$('lgCodeBox').style.display=rec?'':'none';$('lgRememberBox').style.display=(setup||rec)?'none':'';
   $('lgBtn').textContent=setup?tr('إنشاء الحساب والدخول'):rec?tr('إعادة تعيين كلمة المرور'):tr('دخول');
   $('lgForgot').style.display=(m==='login'&&users().length)?'':'none';$('lgBack').style.display=rec?'':'none';$('lgCodeShow').style.display='none';$('lgBtn').style.display='';
-  document.querySelector('#lgPass').previousElementSibling.textContent=rec?tr('كلمة المرور الجديدة'):tr('كلمة المرور');
+  document.querySelector('#lgPass').closest('.field').querySelector('label').textContent=rec?tr('كلمة المرور الجديدة'):tr('كلمة المرور');
   setTimeout(()=>$('lgUser').focus(),50)}
 function maskMail(e){if(!e)return'';const [a,b]=e.split('@');return (a||'').slice(0,1)+'***@'+(b||'')}
 function maskPhone(p){if(!p)return'';const d=String(p).replace(/\D/g,'');return d.slice(0,2)+'*****'+d.slice(-3)}
@@ -1236,6 +1240,7 @@ function applyTheme(t){theme=t;try{localStorage.setItem('theme',t)}catch(e){}
   document.querySelectorAll('.themesw button').forEach(b=>b.classList.toggle('active',b.dataset.theme===t));
   const mini=$('themeBtnHeader');if(mini)mini.textContent=t==='dark'?'☀️':'🌙'}
 function toggleTheme(){applyTheme(theme==='dark'?'light':'dark')}
+function togglePwd(id,btn){const el=$(id);if(!el)return;const show=el.type==='password';el.type=show?'text':'password';if(btn)btn.textContent=show?'🙈':'👁️'}
 
 /* ---------- Offline support (PWA) ---------- */
 function updateNetStatus(){const el=$('netStatus');if(!el)return;
