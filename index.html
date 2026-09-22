@@ -640,13 +640,13 @@ main{width:100%}
   </div>
   <div class="card">
     <div class="tabs">
-      <button class="active" onclick="apTab('today',this)">اليوم</button>
+      <button onclick="apTab('today',this)">اليوم</button>
       <button onclick="apTab('upcoming',this)">القادمة</button>
       <button onclick="apTab('past',this)">السابقة</button>
-      <button onclick="apTab('calendar',this)">📅 تقويم أسبوعي</button>
+      <button class="active" onclick="apTab('calendar',this)">📅 تقويم أسبوعي</button>
     </div>
-    <div id="apList"></div>
-    <div id="apCalendar" style="display:none">
+    <div id="apList" style="display:none"></div>
+    <div id="apCalendar">
       <div class="row between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <button class="btn small secondary" onclick="calNav(-1)">◀ الأسبوع السابق</button>
         <div id="calRangeLbl" style="font-weight:700"></div>
@@ -1014,11 +1014,12 @@ async function buildToothChartMarkup(p,clickOpensFile){
   const trs=await byPatient('treatments',p.id);
   const latest={};trs.forEach(t=>{(t.tooth||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{if(!latest[n]||t.date>=latest[n].date)latest[n]=t})});
   const click=clickOpensFile?`onclick="closeModal('chartModal');openPatient('${p.id}')"`:'';
-  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const isFilling=t&&t.type==='حشو';const isRct=t&&t.type==='علاج عصب';const isOverlay=isImplant||isFilling||isRct;const c=t&&!missing&&!isOverlay?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isOverlay?(TREAT_ICONS[t.type]||'🦷'):'';
-    const variant=t&&t.type==='تركيبات (تاج/جسر)'?'crown':null;
-    const centerIcon=isImplant?IMPLANT_ICON_SVG:isFilling?FILLING_ICON_SVG:isRct?rctIconSvg(n):null;
-    const centerIconSize=isFilling?46:58;
-    const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
+  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const isFilling=t&&t.type==='حشو';const isRct=t&&t.type==='علاج عصب';const isCrown=t&&t.type==='تركيبات (تاج/جسر)';const isBraces=t&&t.type==='تقويم';const isOverlay=isImplant||isFilling||isRct||isCrown||isBraces;const c=t&&!missing&&!isOverlay?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isOverlay?(TREAT_ICONS[t.type]||'🦷'):'';
+    const variant=isCrown?'crown':null;
+    const centerIcon=isImplant?IMPLANT_ICON_SVG:isFilling?FILLING_ICON_SVG:isRct?rctIconSvg(n):isBraces?BRACES_ICON_SVG:null;
+    const centerIconSize=isFilling?46:isBraces?44:58;
+    const anchor=(isFilling||isBraces)?'crown':'center';
+    const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize,anchor);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5)">✓</span>':'';
     return `<div class="tooth-mini" ${click} title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
@@ -1209,6 +1210,27 @@ function toothInfo(n){n=Number(n);const s=String(n);if(s.length!==2)return null;
 /* Real anatomical tooth artwork (MIT-licensed, from React-Odontogram-Modul by Zoltán Dul — see teeth/CREDIT.txt).
    Each FDI position has one drawn file per upper/lower + primary/permanent; left-side teeth reuse the same
    file mirrored horizontally, and lower-arch teeth are flipped vertically to point roots downward. */
+/* Where the crown (vs. root) sits inside each tooth template's native artwork, as [centerFrac,heightFrac]
+   fractions of the image height measured from the top of the UNFLIPPED asset — read directly from each
+   teeth/*.svg file's own "cej"/"occl"/viewBox metadata (the crown runs from the cej line to the occlusal
+   edge), so a filling/braces marker lands on the real crown of that specific tooth instead of a generic
+   mid-image guess. Keyed by the template file's base number (baseQuad+pos, before any _crown/_implant suffix). */
+const TOOTH_CROWN_FRAC={
+  '11':[0.749,0.304],'12':[0.735,0.335],'13':[0.754,0.309],'14':[0.776,0.270],'15':[0.759,0.287],
+  '16':[0.760,0.303],'17':[0.752,0.313],'18':[0.771,0.273],
+  '41':[0.754,0.285],'42':[0.759,0.284],'43':[0.741,0.331],'44':[0.754,0.301],'45':[0.749,0.302],
+  '46':[0.761,0.302],'47':[0.763,0.285],'48':[0.765,0.275],
+  '51':[0.743,0.286],'52':[0.744,0.259],'53':[0.749,0.285],'54':[0.763,0.241],'55':[0.766,0.235],
+  '81':[0.753,0.248],'82':[0.744,0.261],'83':[0.750,0.282],'84':[0.758,0.245],'85':[0.752,0.282]
+};
+function toothCrownAnchor(n){n=Number(n);const s=String(n);if(s.length!==2)return{top:.60,h:.29};
+  const quad=+s[0],pos=+s[1];const primary=quad>=5;
+  const upper=quad===1||quad===2||quad===5||quad===6;
+  const baseQuad=upper?(primary?5:1):(primary?8:4);
+  const flipY=!upper;
+  const d=TOOTH_CROWN_FRAC[`${baseQuad}${pos}`]||[0.755,0.29];
+  let[center,h]=d;if(flipY)center=1-center;
+  return{top:center-h/2,h}}
 function toothSvgSpec(n,variant){n=Number(n);const s=String(n);if(s.length!==2)return null;
   const quad=+s[0],pos=+s[1];const primary=quad>=5;
   const upper=quad===1||quad===2||quad===5||quad===6;
@@ -1252,20 +1274,37 @@ function rctIconSvg(n){
     }else lines+=`<path d="M${cx} 15 Q${cx} 26 ${cx} 35" stroke="#dc2626" stroke-width="1.6" fill="none" stroke-linecap="round"/>`
   });
   return `<svg viewBox="0 0 24 40" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">${chamber}${lines}</svg>`}
+/* Braces bracket (تقويم) — a small metal orthodontic bracket bonded to the middle of the tooth's visible
+   (front) surface, with the connecting archwire passing through it, instead of the old generic 📐 ruler icon. */
+const BRACES_ICON_SVG=`<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+  <line x1="0" y1="12" x2="24" y2="12" stroke="#cbd5e1" stroke-width="1.7"/>
+  <rect x="7.2" y="7.2" width="9.6" height="9.6" rx="2" fill="#e5e7eb" stroke="#64748b" stroke-width="1"/>
+  <rect x="9.1" y="9.1" width="5.8" height="5.8" rx="1" fill="#94a3b8"/>
+  <circle cx="12" cy="12" r="2.3" fill="#8b5cf6"/>
+</svg>`;
 /* variant: null=natural tooth, 'implant'=titanium implant+crown (زراعة), 'crown'=gold crown cap (تركيبات تاج/جسر)
    centerIcon: optional emoji or inline <svg>...</svg> markup shown centered ON TOP of the tooth graphic (like a filling/marker),
    instead of floating above the tooth number. centerIconSize: % width/height of the overlay box (default 58). */
-function toothSvgImg(n,statusColor,missing,variant,centerIcon,centerIconSize){const spec=toothSvgSpec(n,variant);if(!spec)return '';
+function toothSvgImg(n,statusColor,missing,variant,centerIcon,centerIconSize,anchor){const spec=toothSvgSpec(n,variant);if(!spec)return '';
   const tf=`scale(${spec.flipX?-1:1},${spec.flipY?-1:1})`;
   const filt=missing?'grayscale(1) opacity(.4)':'';
   const dot=statusColor?`<span style="position:absolute;left:50%;bottom:${spec.flipY?'auto':'2px'};top:${spec.flipY?'2px':'auto'};transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:${statusColor};border:1.5px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.5)"></span>`:'';
   const sz=centerIconSize||58;
-  /* Overlay icons (implant/filling/RCT) are drawn in a fixed "crown near top, root tip near bottom" convention.
+  /* Overlay icons (implant/filling/RCT/braces) are drawn in a fixed "crown near top, root tip near bottom" convention.
      The tooth artwork ends up in that same orientation only when spec.flipY is true (lower arch); for teeth
      rendered with spec.flipY false (upper arch, root pointing up / crown pointing down) the overlay must be
      flipped vertically to match, otherwise a filling/RCT icon lands upside-down on upper teeth. */
   const iconTf=spec.flipY?'':'scale(1,-1)';
-  const icon=centerIcon?`<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) ${iconTf};width:${sz}%;height:${sz}%;display:flex;align-items:center;justify-content:center;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${centerIcon.trim().startsWith('<svg')?centerIcon:`<span style="font-size:1.5rem;line-height:1">${centerIcon}</span>`}</div>`:'';
+  let iconPos;
+  if(anchor==='crown'){
+    /* Anchor to this specific tooth's real crown position/size (toothCrownAnchor), not the image midpoint —
+       a molar's short crown and a canine's long crown are not in the same place relative to the whole tooth. */
+    const ca=toothCrownAnchor(n);const h=Math.min(sz,ca.h*100*.95);const top=(ca.top+ca.h/2)*100-h/2;
+    iconPos=`left:50%;top:${top}%;width:${sz}%;height:${h}%;transform:translateX(-50%) ${iconTf};`
+  }else{
+    iconPos=`left:50%;top:50%;width:${sz}%;height:${sz}%;transform:translate(-50%,-50%) ${iconTf};`
+  }
+  const icon=centerIcon?`<div style="position:absolute;${iconPos}display:flex;align-items:center;justify-content:center;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${centerIcon.trim().startsWith('<svg')?centerIcon:`<span style="font-size:1.5rem;line-height:1">${centerIcon}</span>`}</div>`:'';
   return `<div style="position:relative;width:100%;height:100%"><img src="${spec.file}" loading="lazy" style="width:100%;height:100%;object-fit:contain;transform:${tf};filter:${filt}" onerror="this.style.opacity=0.15" alt="${n}">${icon}${dot}</div>`}
 function toothIllustrationSVG(info){
   const rootsN=info.roots,canalsN=info.canals;
@@ -1397,11 +1436,12 @@ async function renderTreatChart(){if(!$('treatToothChart'))return;
   trs.forEach(t=>{(t.tooth||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{if(!latest[n]||t.date>=latest[n].date)latest[n]=t})});
   const toothPhoto={};xr.filter(x=>x.kind==='tooth_photo'&&x.tooth).forEach(x=>{const n=String(x.tooth);if(!toothPhoto[n]||x.id>toothPhoto[n].id)toothPhoto[n]=x});
   const curList=$('trTooth')?$('trTooth').value.split(',').map(s=>s.trim()).filter(Boolean):[];
-  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const isFilling=t&&t.type==='حشو';const isRct=t&&t.type==='علاج عصب';const isOverlay=isImplant||isFilling||isRct;const c=t&&!missing&&!isOverlay?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isOverlay?(TREAT_ICONS[t.type]||'🦷'):'';const ph=toothPhoto[String(n)];
-    const variant=t&&t.type==='تركيبات (تاج/جسر)'?'crown':null;
-    const centerIcon=isImplant?IMPLANT_ICON_SVG:isFilling?FILLING_ICON_SVG:isRct?rctIconSvg(n):null;
-    const centerIconSize=isFilling?46:58;
-    const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
+  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const isFilling=t&&t.type==='حشو';const isRct=t&&t.type==='علاج عصب';const isCrown=t&&t.type==='تركيبات (تاج/جسر)';const isBraces=t&&t.type==='تقويم';const isOverlay=isImplant||isFilling||isRct||isCrown||isBraces;const c=t&&!missing&&!isOverlay?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isOverlay?(TREAT_ICONS[t.type]||'🦷'):'';const ph=toothPhoto[String(n)];
+    const variant=isCrown?'crown':null;
+    const centerIcon=isImplant?IMPLANT_ICON_SVG:isFilling?FILLING_ICON_SVG:isRct?rctIconSvg(n):isBraces?BRACES_ICON_SVG:null;
+    const centerIconSize=isFilling?46:isBraces?44:58;
+    const anchor=(isFilling||isBraces)?'crown':'center';
+    const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize,anchor);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5);z-index:1">✓</span>':'';
     return `<div class="tooth-mini${curList.includes(String(n))?' picked':''}" onclick="pickTreatTooth(${n})" title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}<span class="cam${ph?' has':''}" onclick="event.stopPropagation();toothPhotoClick(${n})" title="${tr('صورة السن')}">📷</span><span class="info" onclick="event.stopPropagation();showToothInfo(${n})" title="${tr('معلومات تشريحية دقيقة')}">ℹ️</span>${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
@@ -1562,7 +1602,7 @@ async function renderAppointments(){let [ps,aps]=await Promise.all([getAll('pati
     <td><select onchange="setApStatus('${a.id}',this.value)" style="padding:4px 6px;font-size:.85rem;border-color:${AP_STATUS[st].c}">${Object.entries(AP_STATUS).map(([k,v])=>`<option value="${k}" ${k===st?'selected':''}>${v.l}</option>`).join('')}</select></td>
     <td class="row" style="gap:4px"><button class="btn small wa" title="تذكير بالموعد + طلب تأكيد" onclick="waRemind('${a.id}','remind')">📲 تذكير</button><button class="btn small" style="background:var(--warn)" title="دورك قريب" onclick="waRemind('${a.id}','turn')">⏭ دورك قريب</button><button class="btn small" style="background:#6b7280" title="تحديد كـ«لم يحضر» + إرسال رسالة له" onclick="markNoshow('${a.id}')">🚫 لم يحضر</button>${a.reminded?'<span class="badge ok" title="أُرسل تذكير">✔</span>':''}${a.noshowSent?'<span class="badge" style="background:#6b7280;color:#fff" title="أُرسلت رسالة عدم الحضور">✔ أُبلغ</span>':''}</td>
     <td><button class="btn danger small" onclick="delAp('${a.id}')">حذف</button></td></tr>`}).join('')+'</table>':'<div class="empty">لا توجد مواعيد في هذا القسم</div>'}
-let apMode='today';
+let apMode='calendar';
 const AP_STATUS={pending:{l:'⏳ بانتظار التأكيد',c:'#f59e0b'},confirmed:{l:'✅ مؤكد',c:'#16a34a'},declined:{l:'❌ اعتذر',c:'#dc2626'},arrived:{l:'🪑 حضر',c:'#0e7490'},noshow:{l:'🚫 لم يحضر',c:'#6b7280'}};
 async function setApStatus(id,st){const a=await get('appointments',id);a.status=st;await put('appointments',a);toast(tr('تم تحديث الحالة'));renderAppointments()}
 function waPhone(ph){let d=String(ph||'').replace(/\D/g,'');if(!d)return'';const cc=(settings.country||'972').replace(/\D/g,'');if(d.startsWith('00'))d=d.slice(2);else if(d.startsWith('0'))d=cc+d.slice(1);else if(!d.startsWith(cc)&&d.length<=10)d=cc+d;return d}
