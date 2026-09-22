@@ -326,6 +326,9 @@ main{width:100%}
   <div class="lock" id="lockBox"><span id="lockState">🔒 وضع الاستقبال</span><button id="lockBtn" onclick="toggleLock()">دخول الطبيب</button></div>
   <div class="who" id="whoBox" style="display:none"><span id="whoName"></span><button onclick="logout()">خروج</button></div>
 </header>
+<div id="switchBackBar" style="display:none;align-items:center;gap:10px;padding:8px 16px;background:var(--warn-bg,#fef3c7);color:var(--warn-text,#92400e);font-weight:600">
+  <span></span><button class="btn small" onclick="switchBackToMe()">⬅ رجوع لحسابي</button>
+</div>
 
 <div class="pbar" id="pbar">
   <div class="in">
@@ -561,6 +564,15 @@ main{width:100%}
     </div>
 
     <div id="tab-files" class="tab">
+      <div class="card subtle" style="margin-bottom:14px">
+        <h3>رفع ملف عام</h3>
+        <div class="grid grid-2">
+          <div class="field"><label>الملف</label><input type="file" id="docFile" multiple></div>
+          <div class="field"><label>وصف/اسم الملف (اختياري)</label><input id="docLabel" placeholder="مثال: عقد علاج، تقرير تأمين، هوية..."></div>
+        </div>
+        <p style="color:var(--muted);font-size:.8rem;margin:-6px 0 10px">يقبل أي نوع ملف (Word، Excel، PDF، صور، ضغط...) — الصور تُضغط تلقائيًا، وباقي الملفات بحد أقصى 700 كيلوبايت للملف الواحد</p>
+        <button class="btn" onclick="addDoc()">رفع الملف</button>
+      </div>
       <div class="row between" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <p style="color:var(--muted);margin:0">كل الصور والملفات المرفوعة لهذا المريض — يمكنك تحميلها أو طباعتها</p>
         <div class="row" style="gap:6px">
@@ -572,6 +584,10 @@ main{width:100%}
     </div>
 
     <div id="tab-pay" class="tab">
+      <div class="row between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div></div>
+        <button class="btn small secondary" onclick="printInvoice()">🧾 طباعة فاتورة</button>
+      </div>
       <div class="grid grid-4" style="margin-bottom:14px">
         <div class="card stat"><div class="num" id="payTotalCost">0</div><div class="lbl">تكلفة العلاج</div></div>
         <div class="card stat"><div class="num pos" id="payTotalPaid">0</div><div class="lbl">المدفوع</div></div>
@@ -703,6 +719,11 @@ main{width:100%}
     <button class="btn" onclick="savePin()">حفظ الرمز</button>
     <span id="pinState" style="margin-inline-start:10px;color:var(--muted)"></span>
   </div>
+  <div class="card" id="mySchedCard" style="display:none">
+    <h2>🕒 جدول عملي الأسبوعي</h2>
+    <p style="color:var(--muted);margin-bottom:10px">حدّد أيام وساعات عملك خلال الأسبوع.</p>
+    <button class="btn" onclick="openScheduleModal(curUser&&curUser.u)">🕒 تعديل جدول عملي</button>
+  </div>
   <div class="card doc-only">
     <h2>🤖 الذكاء الاصطناعي (Anthropic Claude)</h2>
     <p style="color:var(--muted);margin-bottom:10px">يحلّل الأعراض وصور الأشعة ويقترح تشخيصًا تفريقيًا مع مراجع موثوقة. يتطلب مفتاح API من <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. المفتاح يُحفظ في هذا المتصفح فقط.</p>
@@ -769,11 +790,23 @@ main{width:100%}
       <div class="field"><label>الجنس</label><select id="fGender"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div>
       <div class="field"><label>العنوان</label><input id="fAddress"></div>
       <div class="field"><label>رقم الملف</label><input id="fFileNo"></div>
+      <div class="field"><label>الدكتور المعالج</label><select id="fDoctor"></select></div>
     </div>
     <div class="field"><label>ملاحظات</label><textarea id="fNotes"></textarea></div>
     <div class="row actions">
       <button class="btn" onclick="savePatient()">💾 حفظ</button>
       <button class="btn secondary" onclick="closeModal('patientModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+<!-- Doctor work-schedule modal -->
+<div class="modal" id="scheduleModal">
+  <div class="box">
+    <h2 id="schModalTitle">جدول العمل</h2>
+    <div id="schRows"></div>
+    <div class="row actions">
+      <button class="btn" onclick="saveSchedule()">💾 حفظ</button>
+      <button class="btn secondary" onclick="closeModal('scheduleModal')">إلغاء</button>
     </div>
   </div>
 </div>
@@ -910,7 +943,9 @@ function age(dob){if(!dob)return'';const d=new Date(dob),n=new Date();let a=n.ge
 let activePatient=(()=>{try{return localStorage.getItem('activePatient')||''}catch(e){return''}})();
 const AP=()=>activePatient||'';
 const byActive=(list)=>AP()?list.filter(x=>(x.patientId||x.id)===AP()):list;
-async function refreshPicker(){const ps=(await getAll('patients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));const sel=$('pickPatient');
+/* Doctor accounts only ever see their own assigned patients. Managers/reception/legacy no-account mode see everyone. */
+function visiblePatients(list){if(curUser&&curUser.role==='doctor')return list.filter(p=>p.doctorId===curUser.u);return list}
+async function refreshPicker(){const ps=visiblePatients(await getAll('patients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));const sel=$('pickPatient');
   sel.innerHTML='<option value="">— كل المرضى (بدون تصفية) —</option>'+ps.map(p=>`<option value="${p.id}">${esc(p.name)}${p.fileNo?' ('+esc(p.fileNo)+')':''}</option>`).join('');sel.value=AP();
   if(AP()&&!ps.find(p=>p.id===AP())){activePatient='';sel.value=''}
   $('pbar').classList.toggle('active',!!AP());$('pbOpen').style.display=AP()?'':'none';$('pbClear').style.display=AP()?'':'none';$('pbHint').style.display=AP()?'none':''}
@@ -919,7 +954,7 @@ async function setActivePatient(id,silent){activePatient=id||'';try{localStorage
   renderDashboardChart()}
 /* Quick find: type a national ID number anywhere in the header and jump straight to that patient's file. */
 async function findPatientByIdNum(q){q=(q||'').trim();if(!q)return;
-  const ps=await getAll('patients');const matches=ps.filter(p=>(p.idNum||'').includes(q));
+  const ps=visiblePatients(await getAll('patients'));const matches=ps.filter(p=>(p.idNum||'').includes(q));
   if(matches.length===1){$('pickIdNum').value='';openPatient(matches[0].id)}
   else if(matches.length>1){$('pickIdNum').value='';if($('searchBox'))$('searchBox').value=q;showView('patients');renderPatients()}
   else toast(tr('لم يتم العثور على مريض بهذا الرقم'))}
@@ -985,7 +1020,7 @@ async function renderDashboardChart(){
 }
 /* "Open the tooth chart any time, for whichever patient" — a modal reachable from the header on every screen, independent of the active-patient picker. */
 async function openChartModal(){
-  const ps=byActive(await getAll('patients')).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+  const ps=visiblePatients(byActive(await getAll('patients'))).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   const sel=$('chartModalPatient');
   sel.innerHTML=ps.length?ps.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):`<option value="">${tr('— أضف مريضًا أولًا —')}</option>`;
   const startId=activePatient&&ps.some(p=>p.id===activePatient)?activePatient:(ps[0]&&ps[0].id);
@@ -1004,7 +1039,7 @@ async function renderChartModalFor(id){
 async function renderPatients(){
   const q=($('searchBox').value||'').trim().toLowerCase();
   const [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);
-  const list=byActive(ps).filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.phone||'').includes(q)||(p.fileNo||'').includes(q)||(p.idNum||'').includes(q)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
+  const list=visiblePatients(byActive(ps)).filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.phone||'').includes(q)||(p.fileNo||'').includes(q)||(p.idNum||'').includes(q)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ar'));
   if(!list.length){$('patientsTable').innerHTML='<div class="empty">لا يوجد مرضى</div>';return}
   $('patientsTable').innerHTML='<table><tr><th>رقم الملف</th><th>الاسم</th><th>الهاتف</th><th>رقم الهوية</th><th>العمر</th><th>الحالة المالية</th><th></th></tr>'+list.map(p=>{
     const c=trs.filter(t=>t.patientId===p.id).reduce((a,t)=>a+Number(t.cost||0),0),pd=pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0),due=c-pd;
@@ -1013,24 +1048,29 @@ async function renderPatients(){
 let editingId=null;
 async function openPatientForm(id){editingId=id||null;$('pmTitle').textContent=id?'تعديل بيانات المريض':'مريض جديد';
   const p=id?await get('patients',id):{};
+  const docs=users().filter(u=>u.role==='doctor'&&u.active!==false);
+  $('fDoctor').innerHTML='<option value="">'+tr('غير محدد')+'</option>'+docs.map(u=>`<option value="${esc(u.u)}">${esc(u.u)}</option>`).join('');
   $('fName').value=p.name||'';$('fPhone').value=p.phone||'';$('fIdNum').value=p.idNum||'';$('fDob').value=p.dob||'';$('fGender').value=p.gender||'ذكر';$('fAddress').value=p.address||'';$('fFileNo').value=p.fileNo||'';$('fNotes').value=p.notes||'';
+  $('fDoctor').value=p.doctorId||'';
   $('patientModal').classList.add('open');$('fName').focus()}
 async function savePatient(){const name=$('fName').value.trim();if(!name)return toast(tr('الاسم مطلوب'));
   const p=editingId?await get('patients',editingId):{id:uid(),createdAt:Date.now(),exam:{},teeth:[]};
-  Object.assign(p,{name,phone:$('fPhone').value.trim(),idNum:$('fIdNum').value.trim(),dob:$('fDob').value,gender:$('fGender').value,address:$('fAddress').value.trim(),fileNo:$('fFileNo').value.trim()||p.fileNo||String(Date.now()).slice(-6),notes:$('fNotes').value.trim()});
+  Object.assign(p,{name,phone:$('fPhone').value.trim(),idNum:$('fIdNum').value.trim(),dob:$('fDob').value,gender:$('fGender').value,address:$('fAddress').value.trim(),fileNo:$('fFileNo').value.trim()||p.fileNo||String(Date.now()).slice(-6),notes:$('fNotes').value.trim(),doctorId:$('fDoctor').value||''});
   await put('patients',p);closeModal('patientModal');toast(tr('تم الحفظ'));await refreshPicker();
   if(editingId&&currentId===editingId)openPatient(currentId);else showView('patients')}
 
 /* ---------- Patient detail ---------- */
 let currentId=null,currentP=null;
-async function openPatient(id){currentId=id;currentP=await get('patients',id);if(!currentP)return;if(activePatient!==id)await setActivePatient(id,true);
+async function openPatient(id){currentId=id;currentP=await get('patients',id);if(!currentP)return;
+  if(curUser&&curUser.role==='doctor'&&currentP.doctorId!==curUser.u){toast(tr('غير مصرح لك بفتح ملف هذا المريض'));currentId=null;currentP=null;showView('patients');return}
+  if(activePatient!==id)await setActivePatient(id,true);
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('view-patient').classList.add('active');document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view==='patients'));
-  $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&tr('ملف:')+' '+currentP.fileNo,currentP.idNum&&tr('هوية:')+' '+currentP.idNum,currentP.phone,currentP.gender,age(currentP.dob),currentP.address].filter(Boolean).join(' • ');
+  $('pName').textContent=currentP.name;$('pInfo').textContent=[currentP.fileNo&&tr('ملف:')+' '+currentP.fileNo,currentP.idNum&&tr('هوية:')+' '+currentP.idNum,currentP.phone,currentP.gender,age(currentP.dob),currentP.address,currentP.doctorId&&tr('الدكتور المعالج')+': '+currentP.doctorId].filter(Boolean).join(' • ');
   const ex=currentP.exam||{};$('exMedical').value=ex.medical||'';$('exAllergy').value=ex.allergy||'';$('exComplaint').value=ex.complaint||'';$('exNotes').value=ex.notes||'';
   renderTeeth();renderTreatChart();$('trDate').value=today();$('payDate').value=today();$('aiSymOut').innerHTML='';if(currentP.aiSymptoms)aiRender($('aiSymOut'),'🧠 '+tr('آخر تحليل')+' ('+currentP.aiSymptoms.date+')',currentP.aiSymptoms.text);
   await Promise.all([renderTreatments(),renderXrays(),renderPayments(),renderExamPhotos(),renderFilesTab()]);applyLock(true);window.scrollTo(0,0)}
-const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometric',cbct:'CBCT',ct:'CT',photo:'صورة فوتوغرافية',intraoral:'صورة فحص داخل الفم',tooth_photo:'صور أسنان محددة',other:'أخرى'};
-const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',intraoral:'👄',tooth_photo:'🦷',other:'📁'};
+const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometric',cbct:'CBCT',ct:'CT',photo:'صورة فوتوغرافية',intraoral:'صورة فحص داخل الفم',tooth_photo:'صور أسنان محددة',document:'مستند عام',other:'أخرى'};
+const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',intraoral:'👄',tooth_photo:'🦷',document:'📎',other:'📁'};
 const XK_ORDER=Object.keys(XK);
 function xrayFolders(list,delBtn){const g={};list.forEach(x=>{const k=XK[x.kind]?x.kind:'other';(g[k]=g[k]||[]).push(x)});
   return XK_ORDER.filter(k=>g[k]).map(k=>`<details class="folder" open><summary><span>${XK_ICON[k]} ${tr(XK[k])}</span><span class="badge ok">${g[k].length} ${tr('صورة')}</span></summary><div class="xrays">${g[k].map(x=>`<div class="xray">${xrayThumb(x)}<div class="meta">${x.date} ${esc(x.note)}${x.fileName?` <span style="color:var(--muted)">(${esc(x.fileName)})</span>`:''}${delBtn?` <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a>`:''}<div class="row" style="gap:4px;margin-top:4px"><button class="btn small" style="flex:1" onclick="downloadXrayItem('${x.id}')">${tr('تحميل')}</button><button class="btn small" style="flex:1" onclick="printXrayItem('${x.id}')">${tr('طباعة')}</button></div><button class="btn small" style="margin-top:4px;width:100%" onclick="aiXray('${x.id}')">🤖 ${tr('تحليل بالذكاء الاصطناعي')}</button></div><div id="aiX_${x.id}">${x.ai?`<div class="ai-box" style="font-size:.8rem;max-height:220px;overflow:auto"><h4>🩻 ${x.ai.date}</h4>${esc(x.ai.text)}</div>`:''}</div></div>`).join('')}</div></details>`).join('')}
@@ -1295,10 +1335,24 @@ async function addXray(){const files=[...$('xrayFile').files];if(!files.length)r
   if(added)toast(tr('تم رفع')+' '+added+' '+tr('ملف'));
   if(skipped)toast(tr('تنبيه: تم تجاهل')+' '+skipped+' '+tr('ملف لأنه أكبر من 700 كيلوبايت — صدّره كصورة JPG من برنامج التصوير أو قلّل حجمه'));
   renderXrays();renderExamPhotos();renderFilesTab()}
+async function addDoc(){const files=[...$('docFile').files];if(!files.length)return toast(tr('اختر ملفًا أولًا'));
+  const RAW_LIMIT=700000;let added=0,skipped=0;const label=$('docLabel').value.trim();
+  for(const f of files){let data,mime=f.type||'',fileName=f.name||'';
+    if(isImageFile(f)){data=await readImg(f)}
+    else{if(f.size>RAW_LIMIT){skipped++;continue}
+      data=await readFileRaw(f);if(isDicomFile(f)&&!mime)mime='application/dicom'}
+    await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'document',note:label||fileName,data,mime,fileName});added++}
+  $('docFile').value='';$('docLabel').value='';
+  if(added)toast(tr('تم رفع')+' '+added+' '+tr('ملف'));
+  if(skipped)toast(tr('تنبيه: تم تجاهل')+' '+skipped+' '+tr('ملف لأنه أكبر من 700 كيلوبايت — قلّل حجمه وأعد المحاولة'));
+  renderXrays();renderFilesTab()}
 function xrayThumb(x){const mime=x.mime||'';
   if(mime.startsWith('image/')||!mime)return `<img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')">`;
   if(mime==='application/pdf')return `<div onclick="window.open('${x.data}','_blank')" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;height:120px;background:var(--card);border:1px dashed var(--border);border-radius:8px;font-size:2rem">📄<div style="font-size:.72rem;margin-top:4px;color:var(--muted)">PDF</div></div>`;
-  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:120px;background:var(--card);border:1px dashed var(--border);border-radius:8px;font-size:2rem">🩻<div style="font-size:.72rem;margin-top:4px;color:var(--muted)">DICOM</div></div>`}
+  if(mime==='application/dicom'||/\.dcm$/i.test(x.fileName||''))return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:120px;background:var(--card);border:1px dashed var(--border);border-radius:8px;font-size:2rem">🩻<div style="font-size:.72rem;margin-top:4px;color:var(--muted)">DICOM</div></div>`;
+  const ext=extFromMime(mime,x.fileName).toUpperCase();
+  const icon=/^(DOC|DOCX)$/.test(ext)?'📝':/^(XLS|XLSX|CSV)$/.test(ext)?'📊':/^(ZIP|RAR|7Z)$/.test(ext)?'🗜️':'📎';
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:120px;background:var(--card);border:1px dashed var(--border);border-radius:8px;font-size:2rem">${icon}<div style="font-size:.72rem;margin-top:4px;color:var(--muted)">${ext}</div></div>`}
 async function renderXrays(){const l=(await byPatient('xrays',currentId)).sort((a,b)=>b.id.localeCompare(a.id));
   $('xrayList').innerHTML=l.length?xrayFolders(l,true):'<div class="empty">لا توجد صور أشعة</div>'}
 
@@ -1311,10 +1365,30 @@ async function renderPayments(){const [pays,trs]=await Promise.all([byPatient('p
   $('payTotalCost').textContent=money(cost);$('payTotalPaid').textContent=money(paid);$('payDue').textContent=money(cost-paid);
   const l=pays.sort((a,b)=>b.date.localeCompare(a.date));
   $('payList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظة</th><th></th></tr>'+l.map(p=>`<tr><td>${p.date}</td><td class="money pos">${money(p.amount)}</td><td>${esc(p.method)}</td><td>${esc(p.note)}</td><td><button class="btn danger small" onclick="delItem('payments','${p.id}')">حذف</button></td></tr>`).join('')+'</table>':'<div class="empty">لا توجد دفعات</div>'}
+async function printInvoice(){const p=currentP;if(!p)return;
+  const [trs,pays]=await Promise.all([byPatient('treatments',currentId),byPatient('payments',currentId)]);
+  const cost=trs.reduce((a,t)=>a+Number(t.cost||0),0),paid=pays.reduce((a,pp)=>a+Number(pp.amount||0),0),due=cost-paid;
+  const clinic=esc(tr(settings.name||'عيادة الأسنان')),doctor=settings.doctor?esc(settings.doctor):'';
+  const w=window.open('','_blank');if(!w)return toast(tr('يرجى السماح بالنوافذ المنبثقة للطباعة'));
+  const rowsT=trs.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>`<tr><td>${t.date}</td><td>${esc(tr(t.type||''))}</td><td>${esc(t.tooth||'')}</td><td>${money(t.cost)}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:#888">${tr('لا توجد إجراءات مسجلة')}</td></tr>`;
+  const rowsP=pays.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(pp=>`<tr><td>${pp.date}</td><td>${money(pp.amount)}</td><td>${esc(tr(pp.method||''))}</td><td>${esc(pp.note||'')}</td></tr>`).join('')||`<tr><td colspan="4" style="text-align:center;color:#888">${tr('لا توجد دفعات')}</td></tr>`;
+  w.document.write(`<html dir="rtl"><head><meta charset="utf-8"><title>${tr('فاتورة')} — ${esc(p.name)}</title>
+<style>body{font-family:Arial,sans-serif;padding:30px;color:#111}h1{margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:6px 10px;font-size:14px;text-align:${LANGS[lang].dir==='rtl'?'right':'left'}}th{background:#f2f2f2}.tot{margin-top:16px;font-size:16px;line-height:1.6}.tot b{font-size:19px}.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:14px}</style>
+</head><body>
+<div class="hdr"><div><h1>${clinic}</h1>${doctor?`<div>${esc(doctor)}</div>`:''}</div><div style="text-align:${LANGS[lang].dir==='rtl'?'left':'right'}"><div>${tr('التاريخ')}: ${today()}</div><div>${tr('فاتورة')} #${esc(p.fileNo||p.id.slice(-6))}</div></div></div>
+<h3>${tr('معلومات المريض')}</h3>
+<div>${tr('الاسم')}: <b>${esc(p.name)}</b> &nbsp;&nbsp; ${tr('الهاتف')}: ${esc(p.phone||'-')} &nbsp;&nbsp; ${tr('رقم الهوية')}: ${esc(p.idNum||'-')}</div>
+<h3>${tr('الإجراءات')}</h3>
+<table><tr><th>${tr('التاريخ')}</th><th>${tr('القسم')}</th><th>${tr('السن')}</th><th>${tr('التكلفة')}</th></tr>${rowsT}</table>
+<h3>${tr('الدفعات')}</h3>
+<table><tr><th>${tr('التاريخ')}</th><th>${tr('المبلغ')}</th><th>${tr('الطريقة')}</th><th>${tr('ملاحظة')}</th></tr>${rowsP}</table>
+<div class="tot"><div>${tr('إجمالي تكلفة العلاج')}: ${money(cost)}</div><div>${tr('إجمالي المدفوع')}: ${money(paid)}</div><div><b>${tr('المتبقي')}: ${money(due)}</b></div></div>
+</body></html>`);
+  w.document.close();setTimeout(()=>{w.focus();w.print()},400)}
 
 /* ---------- Appointments ---------- */
 async function renderAppointments(){let [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);aps=byActive(aps);updateNotifStatus();renderDueReminders();
-  $('apPatient').innerHTML=byActive(ps).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';if(AP())$('apPatient').value=AP();
+  $('apPatient').innerHTML=visiblePatients(byActive(ps)).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="">— أضف مريضًا أولًا —</option>';if(AP())$('apPatient').value=AP();
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const t=today();
   $('apList').style.display=apMode==='calendar'?'none':'';$('apCalendar').style.display=apMode==='calendar'?'block':'none';
   if(apMode==='calendar'){renderApCalendar(aps,pm);return}
@@ -1342,6 +1416,7 @@ async function markNoshow(id){const a=await get('appointments',id);if(!a)return;
 
 /* ---------- Balance reminders before appointment ---------- */
 async function renderDueReminders(){let [aps,ps,trs,pays]=await Promise.all([getAll('appointments'),getAll('patients'),getAll('treatments'),getAll('payments')]);aps=byActive(aps);
+  ps=visiblePatients(ps);const vIds=new Set(ps.map(p=>p.id));aps=aps.filter(a=>vIds.has(a.patientId));trs=trs.filter(t=>vIds.has(t.patientId));pays=pays.filter(x=>vIds.has(x.patientId));
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));const now=Date.now(),days=Number(settings.dueDays)||1;
   const rows=aps.filter(a=>{const t=new Date(a.time).getTime();return t>now&&t-now<=days*86400000+86400000&&!['declined','arrived','noshow'].includes(a.status)}).map(a=>{const c=trs.filter(x=>x.patientId===a.patientId).reduce((s,x)=>s+Number(x.cost||0),0),pd=pays.filter(x=>x.patientId===a.patientId).reduce((s,x)=>s+Number(x.amount||0),0);return{a,p:pm[a.patientId]||{},due:c-pd}}).filter(r=>r.due>0).sort((x,y)=>x.a.time.localeCompare(y.a.time));
   const el=$('dueReminders');if(!el)return;
@@ -1428,6 +1503,7 @@ function calYearWeeks(year){const jan1=new Date(year,0,1);const start=new Date(j
   return weeks}
 async function renderYearCalendar(){const year=new Date().getFullYear()+calYearOffset;$('calYearLbl').textContent=String(year);
   let[ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);aps=byActive(aps);
+  ps=visiblePatients(ps);const vIds=new Set(ps.map(p=>p.id));aps=aps.filter(a=>vIds.has(a.patientId));
   const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const fmtISO=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const yearAps=aps.filter(a=>a.time.slice(0,4)===String(year));
@@ -1452,7 +1528,9 @@ async function renderYearCalendar(){const year=new Date().getFullYear()+calYearO
 /* ---------- Global: Treatments by category ---------- */
 const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':'🩺','خلع':'🔧','تركيبات (تاج/جسر)':'👑','زراعة':'🔩','تقويم':'📐','تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
 async function renderTreatmentsView(cat){if(isLocked()){$('treatCats').innerHTML=lockedHtml();$('treatCatCard').style.display='none';return}
-  let [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);trs=byActive(trs);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  let [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);trs=byActive(trs);
+  ps=visiblePatients(ps);const vIds=new Set(ps.map(p=>p.id));trs=trs.filter(t=>vIds.has(t.patientId));
+  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const cats=[...$('trType').options].map(o=>o.value);
   $('treatCats').innerHTML=cats.map(c=>{const l=trs.filter(t=>t.type===c);const sum=l.reduce((a,t)=>a+Number(t.cost||0),0);
     return `<div class="tile" onclick="renderTreatmentsView('${c}')"><div class="ico">${TREAT_ICONS[c]||'📋'}</div><div class="t">${tr(c)}</div><div class="d">${l.length} ${tr('إجراء')} • ${money(sum)}</div></div>`}).join('');
@@ -1464,7 +1542,9 @@ async function renderTreatmentsView(cat){if(isLocked()){$('treatCats').innerHTML
 
 /* ---------- Global: X-ray archive ---------- */
 async function renderXraysView(){if(isLocked()){$('xrayArchive').innerHTML=lockedHtml();return}
-  const [xr,ps]=await Promise.all([getAll('xrays'),getAll('patients')]);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  let [xr,ps]=await Promise.all([getAll('xrays'),getAll('patients')]);
+  ps=visiblePatients(ps);const vIds=new Set(ps.map(p=>p.id));xr=xr.filter(x=>vIds.has(x.patientId));
+  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const sel=$('xrayFilter');const cur=AP()||sel.value;sel.innerHTML='<option value="">كل المرضى</option>'+byActive(ps).sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');sel.value=cur;
   const l=xr.filter(x=>!cur||x.patientId===cur).sort((a,b)=>b.id.localeCompare(a.id));
   if(!l.length){$('xrayArchive').innerHTML='<div class="card empty">لا توجد صور أشعة</div>';return}
@@ -1475,7 +1555,7 @@ async function renderXraysView(){if(isLocked()){$('xrayArchive').innerHTML=locke
 let payMode='due';
 function payTab(m,btn){payMode=m;btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===btn));document.querySelectorAll('.ptab').forEach(x=>x.style.display='none');$('ptab-'+m).style.display='block';renderPaymentsView()}
 async function renderPaymentsView(){
-  let [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);ps=byActive(ps);pays=byActive(pays);trs=byActive(trs);const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  let [ps,pays,trs]=await Promise.all([getAll('patients'),getAll('payments'),getAll('treatments')]);ps=visiblePatients(byActive(ps));const vIds=new Set(ps.map(p=>p.id));pays=byActive(pays).filter(x=>vIds.has(x.patientId));trs=byActive(trs).filter(t=>vIds.has(t.patientId));const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
   const cost=trs.reduce((a,t)=>a+Number(t.cost||0),0),paid=pays.reduce((a,p)=>a+Number(p.amount||0),0),t=today();
   $('gpCost').textContent=money(cost);$('gpPaid').textContent=money(paid);$('gpDue').textContent=money(Math.max(cost-paid,0));$('gpToday').textContent=money(pays.filter(p=>p.date===t).reduce((a,p)=>a+Number(p.amount||0),0));
   const rows=ps.map(p=>{const c=trs.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.cost||0),0),pd=pays.filter(x=>x.patientId===p.id).reduce((a,x)=>a+Number(x.amount||0),0);return{p,c,pd,due:c-pd}}).filter(r=>r.due>0).sort((a,b)=>b.due-a.due);
@@ -1486,6 +1566,12 @@ async function renderPaymentsView(){
   const ml=Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0]));
   $('ptab-month').innerHTML=ml.length?'<table><tr><th>الشهر</th><th>عدد الدفعات</th><th>الإجمالي</th></tr>'+ml.map(([m,v])=>`<tr><td>${m}</td><td>${v.n}</td><td class="money pos">${money(v.sum)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>'}
 async function addAppointment(){const pid=$('apPatient').value,t=$('apTime').value;if(!pid||!t)return toast(tr('اختر المريض والوقت'));
+  const p=await get('patients',pid);
+  if(p&&p.doctorId){const doc=findUser(p.doctorId);
+    if(doc&&doc.role==='doctor'){const sched=doc.schedule||defaultSchedule();
+      const day=new Date(t).getDay();const d=sched.find(s=>s.day===day);
+      if(d&&!d.enabled)return toast('🚫 '+tr('الدكتور')+' '+doc.u+' '+tr('لا يعمل يوم')+' '+tr(SCHED_DAYS[day])+' — '+tr('لا يمكن حجز موعد بهذا اليوم'));
+    }}
   await put('appointments',{id:uid(),patientId:pid,time:t,reason:$('apReason').value.trim()});$('apReason').value='';toast(tr('تم حفظ الموعد'));renderAppointments()}
 async function delAp(id){await del('appointments',id);renderAppointments()}
 
@@ -1503,15 +1589,26 @@ async function toggleLock(){
     toast(tr('هذا القسم غير متاح لحسابك'));return}
   const p=prompt(tr('أدخل الرمز السري للطبيب'));if(p===null)return;if(await sha(p)===settings.pinHash){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}applyLock();toast(tr('مرحبًا دكتور'))}else toast(tr('رمز غير صحيح'))}
 function applyLock(skipReopen){const L_=isLocked();const has=!!settings.pinHash||!!curUser;
+  const isReception=!!(curUser&&curUser.role==='reception');
+  const L_treat=L_&&!isReception;
   $('lockBox').style.display=has?'':'none';document.querySelectorAll('.doc-only').forEach(c=>c.style.display=L_?'none':'');
   document.querySelectorAll('.mgr-only').forEach(c=>c.style.display=(curUser&&perm('manageUsers'))?'':'none');$('lockState').textContent=L_?'🔒 '+tr('وضع الاستقبال'):'🔓 '+tr('وضع الطبيب');$('lockBtn').textContent=L_?tr('دخول الطبيب'):tr('قفل');
   document.querySelectorAll('nav button[data-view=treatments],nav button[data-view=xrays]').forEach(b=>b.style.display=L_?'none':'');
   document.querySelectorAll('.tile[onclick*=treatments],.tile[onclick*=xrays]').forEach(b=>b.style.display=L_?'none':'');
-  document.querySelectorAll('.tabs button[data-tab=exam],.tabs button[data-tab=treat],.tabs button[data-tab=xray],.tabs button[data-tab=files]').forEach(b=>b.style.display=L_?'none':'');
+  document.querySelectorAll('.tabs button[data-tab=exam],.tabs button[data-tab=xray],.tabs button[data-tab=files]').forEach(b=>b.style.display=L_?'none':'');
+  document.querySelectorAll('.tabs button[data-tab=treat]').forEach(b=>b.style.display=L_treat?'none':'');
+  /* Reception role: permanent, role-based nav restriction — independent of the temporary doctor-mode PIN unlock. */
+  const RECEPTION_HIDDEN_VIEWS=['dashboard','treatments','xrays','yearcal','payments','settings'];
+  RECEPTION_HIDDEN_VIEWS.forEach(v=>{const b=document.querySelector('nav button[data-view='+v+']');if(b)b.style.display=isReception?'none':''});
+  if(isReception){
+    document.querySelectorAll('.tile[onclick*="showView(\'dashboard\')"],.tile[onclick*="showView(\'treatments\')"],.tile[onclick*="showView(\'xrays\')"],.tile[onclick*="showView(\'yearcal\')"],.tile[onclick*="showView(\'payments\')"],.tile[onclick*="showView(\'settings\')"]').forEach(b=>b.style.display='none');
+    const cur=document.querySelector('.view.active');
+    if(cur&&RECEPTION_HIDDEN_VIEWS.includes(cur.id.replace('view-',''))){showView('patients')}
+  }
   if(L_){const cur=document.querySelector('.view.active');if(cur&&(cur.id==='view-treatments'||cur.id==='view-xrays'))showView('dashboard');
     if($('view-patient').classList.contains('active')){document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const b=document.querySelector('.tabs button[data-tab=pay]');if(b){b.classList.add('active');$('tab-pay').classList.add('active')}}}
   else{const v=document.querySelector('.view.active');if(v){const id=v.id.replace('view-','');if(id==='patient'&&currentId){if(!skipReopen)openPatient(currentId)}else showView(id)}}
-  refreshPinState()}
+  refreshPinState();renderSwitchBar()}
 function refreshPinState(){if($('pinState'))$('pinState').textContent=settings.pinHash?'✅ '+tr('القفل مفعّل'):tr('غير مفعّل')}
 async function savePin(){const v=$('setPin').value.trim();if(v&&v.length<4)return toast(tr('الرمز 4 أرقام على الأقل'));
   settings.pinHash=v?await sha(v):'';settings.lockMin=Number($('setLockMin').value)||15;await put('settings',{...settings,id:'main'});$('setPin').value='';
@@ -1567,27 +1664,95 @@ async function requestRecoveryCode(){const u=$('lgUser').value.trim();if(!u)retu
   $('lgPassBox').style.display='';$('lgCodeBox').style.display='';$('lgConfirmBox').style.display='';$('lgBtn').style.display='';$('lgRecoverRequest').style.display='none';
   setTimeout(()=>$('lgCode').focus(),50)}
 function enterApp(){if(curUser)finishLogin(curUser,false)}
+/* ---------- Presence (who's online) ---------- */
+let presenceTimer=null;
+async function sendHeartbeat(){if(!curUser)return;try{await put('presence',{id:curUser.u,u:curUser.u,role:curUser.role,lastSeen:Date.now()})}catch(e){}}
+function startPresence(){sendHeartbeat();if(presenceTimer)clearInterval(presenceTimer);presenceTimer=setInterval(sendHeartbeat,25000)}
+function stopPresence(){if(presenceTimer){clearInterval(presenceTimer);presenceTimer=null}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&curUser)sendHeartbeat()});
+function timeAgo(ts){if(!ts)return'';const s=Math.max(0,Math.floor((Date.now()-ts)/1000));
+  if(s<60)return tr('الآن');const m=Math.floor(s/60);if(m<60)return m+' '+tr('د')+' '+tr('مضت');
+  const h=Math.floor(m/60);if(h<24)return h+' '+tr('س')+' '+tr('مضت');const d=Math.floor(h/24);return d+' '+tr('يوم')+' '+tr('مضت')}
 function finishLogin(user,remember,silent){curUser=user;try{sessionStorage.setItem('authUser',user.u);if(remember)localStorage.setItem('authUser',user.u)}catch(e){}
   $('loginScreen').classList.add('hide');document.body.style.overflow='';
   if(perm('clinical')){unlocked=true;try{sessionStorage.setItem('docUnlocked','1')}catch(e){}}else{unlocked=false;try{sessionStorage.removeItem('docUnlocked')}catch(e){}}
   $('whoBox').style.display='';$('whoName').textContent='👤 '+user.u+' ('+tr(user.role==='manager'?'مدير':user.role==='doctor'?'طبيب':'استقبال')+')';
-  if(authResolve){const r=authResolve;authResolve=null;r()}else{applyLock();showView('dashboard')}
+  startPresence();
+  if(authResolve){const r=authResolve;authResolve=null;r()}else{showView('dashboard');applyLock()}
   if(!silent)toast(tr('مرحبًا')+' '+user.u)}
-function logout(){try{sessionStorage.removeItem('authUser');localStorage.removeItem('authUser');sessionStorage.removeItem('docUnlocked')}catch(e){}location.reload()}
+function logout(){stopPresence();try{sessionStorage.removeItem('authUser');localStorage.removeItem('authUser');sessionStorage.removeItem('docUnlocked')}catch(e){}location.reload()}
 $('loginScreen').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if($('lgBtn').style.display!=='none')doAuth()}});
 function genCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const b=crypto.getRandomValues(new Uint8Array(8));return [...b].map(x=>a[x%a.length]).join('').replace(/(.{4})(.{4})/,'$1-$2')}
 function mgrCount(){return users().filter(y=>(y.perms||defaultPerms(y.role)).manageUsers&&y.active!==false).length}
-function renderUsers(){const me=curUser&&curUser.u;
-  $('usersList').innerHTML=users().length?'<table><tr><th>'+tr('المستخدم')+'</th><th>'+tr('الصلاحية')+'</th><th>'+tr('الوصول السريري')+'</th><th>'+tr('إدارة المستخدمين')+'</th><th>'+tr('بريد الاسترجاع')+'</th><th>'+tr('هاتف الاسترجاع')+'</th><th>'+tr('الحالة')+'</th><th></th></tr>'+users().map(x=>{
+async function renderUsers(){const me=curUser&&curUser.u;
+  let presence=[];try{presence=await getAll('presence')}catch(e){}
+  const pm=Object.fromEntries(presence.map(x=>[x.u,x]));const now=Date.now(),ONLINE_MS=60000;
+  $('usersList').innerHTML=users().length?'<table><tr><th>'+tr('المستخدم')+'</th><th>'+tr('الصلاحية')+'</th><th>'+tr('الاتصال')+'</th><th>'+tr('الوصول السريري')+'</th><th>'+tr('إدارة المستخدمين')+'</th><th>'+tr('بريد الاسترجاع')+'</th><th>'+tr('هاتف الاسترجاع')+'</th><th>'+tr('الحالة')+'</th><th></th></tr>'+users().map(x=>{
     const p=x.perms||defaultPerms(x.role);const isLastMgr=p.manageUsers&&x.active!==false&&mgrCount()<=1;
+    const pr=pm[x.u];const online=pr&&(now-pr.lastSeen)<ONLINE_MS;
+    const statusHtml=online?'<span class="badge ok">🟢 '+tr('متصل الآن')+'</span>':(pr?'<span class="badge">⚪ '+tr('آخر ظهور')+' '+timeAgo(pr.lastSeen)+'</span>':'<span class="badge">⚪ '+tr('لم يسجّل الدخول بعد')+'</span>');
     return `<tr><td><b>${esc(x.u)}</b>${x.u===me?' <span class="badge ok">'+tr('أنت')+'</span>':''}${x.active===false?' <span class="badge bad">'+tr('موقوف')+'</span>':''}</td>
 <td><select onchange="setUserRole('${esc(x.u)}',this.value)" ${isLastMgr?'disabled':''}><option value="manager" ${x.role==='manager'?'selected':''}>${tr('مدير')}</option><option value="doctor" ${x.role==='doctor'?'selected':''}>${tr('طبيب')}</option><option value="reception" ${x.role==='reception'?'selected':''}>${tr('استقبال')}</option></select></td>
+<td>${statusHtml}</td>
 <td style="text-align:center"><input type="checkbox" ${p.clinical?'checked':''} onchange="setUserPerm('${esc(x.u)}','clinical',this.checked)"></td>
 <td style="text-align:center"><input type="checkbox" ${p.manageUsers?'checked':''} ${isLastMgr?'disabled':''} onchange="setUserPerm('${esc(x.u)}','manageUsers',this.checked)"></td>
 <td><input value="${esc(x.recEmail||'')}" placeholder="you@example.com" style="width:130px" onchange="setUserRecovery('${esc(x.u)}','recEmail',this.value)"></td>
 <td><input value="${esc(x.recPhone||'')}" placeholder="05xxxxxxxx" style="width:110px" onchange="setUserRecovery('${esc(x.u)}','recPhone',this.value)"></td>
 <td><button class="btn small ${x.active===false?'':'secondary'}" ${x.u===me?'disabled':''} onclick="toggleActive('${esc(x.u)}')">${x.active===false?tr('تفعيل'):tr('إيقاف')}</button></td>
-<td>${(x.u===me||isLastMgr)?'':`<button class="btn danger small" onclick="delUser('${esc(x.u)}')">${tr('حذف')}</button>`}</td></tr>`}).join('')+'</table>':''}
+<td>${(x.u===me||isLastMgr)?'':`<button class="btn danger small" onclick="delUser('${esc(x.u)}')">${tr('حذف')}</button>`}${x.u!==me?` <button class="btn small secondary" onclick="quickSwitchTo('${esc(x.u)}')">🔄 ${tr('دخول كـ')}</button>`:''}${x.role==='doctor'?` <button class="btn small secondary" onclick="openScheduleModal('${esc(x.u)}')">🕒 ${tr('جدول العمل')}</button>`:''}</td></tr>`}).join('')+'</table>':''}
+let usersLiveTimer=null;
+function startUsersLiveRefresh(){if(usersLiveTimer)clearInterval(usersLiveTimer);
+  usersLiveTimer=setInterval(()=>{const v=document.querySelector('.view.active');if(v&&v.id==='view-settings'&&curUser&&perm('manageUsers'))renderUsers();else{clearInterval(usersLiveTimer);usersLiveTimer=null}},20000)}
+let impersonatorStack=[];
+function quickSwitchTo(u){
+  if(!curUser||!perm('manageUsers'))return toast(tr('غير مسموح'));
+  const target=findUser(u);if(!target)return;
+  if(target.u===curUser.u)return;
+  if(target.active===false)return toast(tr('هذا الحساب موقوف'));
+  impersonatorStack.push(curUser);
+  finishLogin(target,false,true);
+  toast(tr('انتقلت إلى حساب')+' '+target.u);
+  renderSwitchBar()}
+const SCHED_DAYS=['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+function defaultSchedule(){return [0,1,2,3,4,5,6].map(d=>({day:d,enabled:d>=0&&d<=4,start:'09:00',end:'17:00'}))}
+let scheduleEditingUser=null;
+function renderScheduleRows(sched){
+  $('schRows').innerHTML=SCHED_DAYS.map((name,d)=>{
+    const row=sched.find(s=>s.day===d)||{day:d,enabled:false,start:'09:00',end:'17:00'};
+    return `<div class="row" style="align-items:center;gap:10px;margin-bottom:8px" data-day="${d}">
+<label style="display:flex;align-items:center;gap:6px;min-width:120px"><input type="checkbox" id="schEn${d}" ${row.enabled?'checked':''} onchange="document.getElementById('schStart${d}').disabled=document.getElementById('schEnd${d}').disabled=!this.checked">${tr(name)}</label>
+<label>${tr('من الساعة')} <input type="time" id="schStart${d}" value="${esc(row.start||'09:00')}" ${row.enabled?'':'disabled'}></label>
+<label>${tr('إلى الساعة')} <input type="time" id="schEnd${d}" value="${esc(row.end||'17:00')}" ${row.enabled?'':'disabled'}></label>
+</div>`}).join('')}
+function openScheduleModal(u){
+  if(!u)return;
+  if(!(curUser&&(perm('manageUsers')||curUser.u===u)))return toast(tr('غير مسموح'));
+  const x=findUser(u);if(!x)return;
+  scheduleEditingUser=u;
+  $('schModalTitle').textContent='🕒 '+tr('جدول العمل')+' — '+x.u;
+  renderScheduleRows(x.schedule||defaultSchedule());
+  $('scheduleModal').classList.add('open')}
+async function saveSchedule(){
+  const u=scheduleEditingUser;if(!u)return;
+  if(!(curUser&&(perm('manageUsers')||curUser.u===u)))return toast(tr('غير مسموح'));
+  const x=findUser(u);if(!x)return;
+  const sched=SCHED_DAYS.map((name,d)=>({day:d,enabled:$('schEn'+d).checked,start:$('schStart'+d).value||'09:00',end:$('schEnd'+d).value||'17:00'}));
+  x.schedule=sched;
+  await put('settings',{...settings,id:'main'});
+  toast(tr('تم حفظ جدول العمل'));
+  closeModal('scheduleModal');
+  scheduleEditingUser=null;
+  if(curUser&&perm('manageUsers'))renderUsers()}
+function switchBackToMe(){
+  if(!impersonatorStack.length)return;
+  const orig=impersonatorStack.pop();
+  finishLogin(orig,false,true);
+  toast(tr('رجعت لحسابك'));
+  renderSwitchBar()}
+function renderSwitchBar(){
+  const el=$('switchBackBar');if(!el)return;
+  if(impersonatorStack.length){el.style.display='flex';const s=el.querySelector('span');if(s)s.textContent='🔄 '+tr('أنت الآن بحساب')+' '+(curUser?curUser.u:'')+' ('+tr(curUser&&curUser.role==='manager'?'مدير':curUser&&curUser.role==='doctor'?'طبيب':'استقبال')+')'}
+  else el.style.display='none'}
 async function setUserRole(u,role){const x=findUser(u);if(!x)return;const wasMgr=(x.perms||defaultPerms(x.role)).manageUsers&&x.active!==false;
   if(wasMgr&&role!=='manager'&&mgrCount()<=1){toast(tr('يجب أن يبقى مدير واحد على الأقل'));renderUsers();return}
   x.role=role;x.perms=defaultPerms(role);await put('settings',{...settings,id:'main'});toast(tr('تم التحديث'));renderUsers()}
@@ -1663,9 +1828,10 @@ const DEFS={
  due:{ar:'مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\n💳 المبلغ المتبقي عليك: {due}\nيرجى تجهيزه قبل الموعد. شكرًا 🙏',he:'שלום {name} 👋\nתזכורת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\n💳 היתרה לתשלום: {due}\nאנא הכן/י אותה לפני התור. תודה 🙏',en:'Hello {name} 👋\nReminder of your appointment at {clinic}{doctor} on {date} at {time}.\n💳 Your remaining balance: {due}\nPlease have it ready before the appointment. Thank you 🙏'},
  noshow:{ar:'مرحبًا {name} 👋\nلاحظنا أنك لم تحضر لموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\nيرجى التواصل معنا لتحديد موعد جديد في أقرب وقت يناسبك. شكرًا 🙏',he:'שלום {name} 👋\nשמנו לב שלא הגעת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\nאנא צור/י קשר לקביעת תור חדש בהקדם. תודה 🙏',en:'Hello {name} 👋\nWe noticed you missed your appointment at {clinic}{doctor} on {date} at {time}.\nPlease contact us to reschedule at your earliest convenience. Thank you 🙏'}};
 const DEF=k=>DEFS[k][lang]||DEFS[k].ar;const isDef=(k,v)=>Object.values(DEFS[k]).includes(v);
-function loadSettingsForm(){renderFeedback();refreshPinState();renderUsers();refreshBackupState();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
+function loadSettingsForm(){renderFeedback();refreshPinState();renderUsers();startUsersLiveRefresh();refreshBackupState();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
   $('setRemindMin').value=settings.remindMin||30;$('setCountry').value=settings.country||'972';$('setMsgRemind').value=settings.msgRemind||DEF('remind');$('setMsgTurn').value=settings.msgTurn||DEF('turn');$('setMsgNoshow').value=settings.msgNoshow||DEF('noshow');
-  $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF('due');$('setApColorMode').value=settings.apColorMode||'status'}
+  $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF('due');$('setApColorMode').value=settings.apColorMode||'status';
+  $('mySchedCard').style.display=(curUser&&curUser.role==='doctor')?'':'none'}
 async function saveSettings(){settings={id:'main',users:settings.users||[],recoveryHash:settings.recoveryHash||'',recEmail:settings.recEmail||'',recPhone:settings.recPhone||'',pinHash:settings.pinHash||'',lockMin:settings.lockMin||15,aiKey:settings.aiKey||'',aiModel:settings.aiModel||'claude-sonnet-5',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
   remindMin:Number($('setRemindMin').value)||30,country:$('setCountry').value.trim()||'972',msgRemind:isDef('remind',$('setMsgRemind').value.trim())?'':$('setMsgRemind').value.trim(),msgTurn:isDef('turn',$('setMsgTurn').value.trim())?'':$('setMsgTurn').value.trim(),msgNoshow:isDef('noshow',$('setMsgNoshow').value.trim())?'':$('setMsgNoshow').value.trim(),
   dueDays:Number($('setDueDays').value)||1,msgDue:isDef('due',$('setMsgDue').value.trim())?'':$('setMsgDue').value.trim(),apColorMode:$('setApColorMode').value||'status',apTypeColors:settings.apTypeColors||{},apPatientColors:settings.apPatientColors||{}};await put('settings',settings);await loadSettings();updateNotifStatus();toast(tr('تم الحفظ'))}
@@ -1682,7 +1848,7 @@ const L={
 'مريض':['מטופלים','patients'],'مواعيد اليوم':['תורים היום','Today\'s appointments'],'إجمالي المدفوعات':['סה"כ תשלומים','Total payments'],'مبالغ مستحقة':['יתרות לתשלום','Outstanding'],
 'أقسام النظام':['מדורי המערכת','System sections'],'ملفات المرضى، البحث، المعاينة':['תיקי מטופלים, חיפוש, בדיקה','Patient files, search, exam'],'اليوم، القادمة، السجل':['היום, הקרובים, היסטוריה','Today, upcoming, history'],
 'أقسام العلاج':['סוגי טיפול','Treatment sections'],'حشو، عصب، تقويم، زراعة…':['סתימה, עצב, יישור, שתל…','Filling, root canal, ortho, implants…'],'صور الأشعة':['צילומי רנטגן','X-ray images'],'أرشيف الصور لكل المرضى':['ארכיון צילומים לכל המטופלים','Image archive for all patients'],
-'المرفقات':['קבצים מצורפים','Attachments'],'معلومات تشريحية دقيقة':['מידע אנטומי מדויק','Accurate anatomical info'],'السن':['השן','Tooth'],'سن لبني (أطفال)':['שן חלב (ילדים)','Baby tooth (pediatric)'],'الفك العلوي':['לסת עליונה','Upper jaw'],'الفك السفلي':['לסת תחתונה','Lower jaw'],'يمين':['ימין','Right'],'يسار':['שמאל','Left'],'قاطعة مركزية':['שן חותכת מרכזית','Central incisor'],'قاطعة جانبية':['שן חותכת צדדית','Lateral incisor'],'ناب':['ניב','Canine'],'ضاحك أول':['טוחנת קדמית ראשונה','1st premolar'],'ضاحك ثاني':['טוחנת קדמית שנייה','2nd premolar'],'ضرس أول':['טוחנת ראשונה','1st molar'],'ضرس ثاني':['טוחנת שנייה','2nd molar'],'ضرس العقل':['שן בינה','Wisdom tooth'],'قاطعة مركزية لبنية':['חותכת חלב מרכזית','Primary central incisor'],'قاطعة جانبية لبنية':['חותכת חלב צדדית','Primary lateral incisor'],'ناب لبني':['ניב חלב','Primary canine'],'ضرس لبني أول':['טוחנת חלב ראשונה','Primary 1st molar'],'ضرس لبني ثاني':['טוחנת חלב שנייה','Primary 2nd molar'],'أحيانًا قناتان (لسانية/شفوية)':['לעיתים שני תעלות (לשונית/שפתית)','Sometimes 2 canals (lingual/labial)'],'غالبًا جذران (شفوي/لهائي)':['לרוב שני שורשים (חיצוני/חכי)','Usually 2 roots (buccal/palatal)'],'أحيانًا قناتان':['לעיתים שני תעלות','Sometimes 2 canals'],'MB1+MB2, DB, لهائي':['MB1+MB2, DB, חכי','MB1+MB2, DB, palatal'],'مسي شفوي، مسي لساني، بعيد':['מזיו-חיצוני, מזיו-לשוני, דיסטלי','Mesiobuccal, mesiolingual, distal'],'أحيانًا 4 قنوات':['לעיתים 4 תעלות','Sometimes 4 canals'],'تشريح متغير جدًا':['אנטומיה משתנה מאוד','Highly variable anatomy'],'تم تنزيل نسخة احتياطية':['גיבוי הורד בהצלחה','Backup downloaded'],'هذه الميزة متاحة فقط على متصفح كمبيوتر (Chrome أو Edge)':['תכונה זו זמינה רק בדפדפן מחשב (Chrome או Edge)','This feature is only available on a computer browser (Chrome or Edge)'],'تم اختيار المجلد — سيبدأ النسخ التلقائي الآن':['התיקייה נבחרה — הגיבוי האוטומטי יתחיל כעת','Folder selected — automatic backup will start now'],'تعذر اختيار المجلد':['לא ניתן לבחור תיקייה','Could not select the folder'],'تم إيقاف النسخ التلقائي على هذا الجهاز':['הגיבוי האוטומטי הופסק במכשיר זה','Automatic backup stopped on this device'],'النسخ التلقائي مفعّل على هذا الجهاز':['הגיבוי האוטומטי פעיל במכשיר זה','Automatic backup is enabled on this device'],'آخر نسخة':['גיבוי אחרון','Last backup'],'النسخ التلقائي غير مفعّل على هذا الجهاز':['הגיבוי האוטומטי אינו פעיל במכשיר זה','Automatic backup is not enabled on this device'],'سيتم دمج بيانات النسخة الاحتياطية مع البيانات الحالية (لن يتم حذف شيء). متابعة؟':['נתוני הגיבוי ישולבו עם הנתונים הקיימים (שום דבר לא יימחק). להמשיך?','The backup data will be merged with existing data (nothing will be deleted). Continue?'],'تم استيراد':['יובאו','Imported'],'سجل':['רשומות','records'],'ملف النسخة الاحتياطية غير صالح':['קובץ הגיבוי אינו תקין','Invalid backup file'],'صورة السن':['תמונת שן','Tooth photo'],'تم رفع صورة السن':['תמונת השן הועלתה','Tooth photo uploaded'],'صور أسنان محددة':['תמונות שיניים ספציפיות','Specific tooth photos'],'اضغط على السن لتحديده (يمكن اختيار أكثر من سن) — اضغط أيقونة 📷 لإضافة أو عرض صورة لهذا السن تحديدًا':['לחץ על שן לבחירתה (ניתן לבחור כמה שיניים) — לחץ על סמל 📷 להוספה או צפייה בתמונה של שן זו','Click a tooth to select it (multiple teeth allowed) — click the 📷 icon to add or view a photo of that specific tooth'],'صور الفحص السريري (داخل الفم)':['תמונות בדיקה קלינית (תוך-פומיות)','Clinical exam photos (intraoral)'],'التقط أو ارفع صورة لحالة الفم من الداخل لتوثيق الفحص والتشخيص':['צלם או העלה תמונה של מצב הפה מבפנים לתיעוד הבדיקה והאבחון','Take or upload a photo of the mouth from inside to document the exam and diagnosis'],'رفع الصورة':['העלאת תמונה','Upload photo'],'لا توجد صور فحص بعد':['אין עדיין תמונות בדיקה','No exam photos yet'],'صورة فحص داخل الفم':['תמונת בדיקה תוך-פומית','Intraoral exam photo'],'كل الصور والملفات المرفوعة لهذا المريض — يمكنك تحميلها أو طباعتها':['כל התמונות והקבצים שהועלו למטופל זה — ניתן להוריד או להדפיס אותם','All images and files uploaded for this patient — you can download or print them'],'تحميل الكل':['הורדת הכול','Download all'],'طباعة الكل':['הדפסת הכול','Print all'],'لا توجد ملفات مرفوعة':['לא הועלו קבצים','No files uploaded'],'تحميل':['הורדה','Download'],'طباعة':['הדפסה','Print'],'لا توجد ملفات':['אין קבצים','No files'],'يرجى السماح بالنوافذ المنبثقة للطباعة':['אנא אפשר חלונות קופצים להדפסה','Please allow pop-ups to print'],
+'المرفقات':['קבצים מצורפים','Attachments'],'رفع ملف عام':['העלאת קובץ כללי','Upload a general file'],'الملف':['הקובץ','File'],'وصف/اسم الملف (اختياري)':['תיאור/שם הקובץ (אופציונלי)','File description/name (optional)'],'مثال: عقد علاج، تقرير تأمين، هوية...':['לדוגמה: הסכם טיפול, דוח ביטוח, ת.ז...','e.g. treatment contract, insurance report, ID...'],'يقبل أي نوع ملف (Word، Excel، PDF، صور، ضغط...) — الصور تُضغط تلقائيًا، وباقي الملفات بحد أقصى 700 كيلوبايت للملف الواحد':['ניתן להעלות כל סוג קובץ (Word, Excel, PDF, תמונות, דחיסה...) — תמונות נדחסות אוטומטית, וקבצים אחרים עד 700KB לקובץ','Accepts any file type (Word, Excel, PDF, images, archives...) — images are auto-compressed; other files up to 700KB each'],'رفع الملف':['העלאת הקובץ','Upload file'],'اختر ملفًا أولًا':['בחר קובץ תחילה','Choose a file first'],'مستند عام':['מסמך כללי','General document'],'🧾 طباعة فاتورة':['🧾 הדפסת חשבונית','🧾 Print invoice'],'فاتورة':['חשבונית','Invoice'],'معلومات المريض':['פרטי המטופל','Patient info'],'الإجراءات':['טיפולים','Procedures'],'الاتصال':['חיבור','Connection'],'متصل الآن':['מחובר כעת','Online now'],'آخر ظهور':['נראה לאחרונה','Last seen'],'لم يسجّل الدخول بعد':['עדיין לא התחבר','Has not logged in yet'],'الآن':['כעת','just now'],'مضت':['','ago'],'د':['דק׳','min'],'س':['שע׳','h'],'يوم':['יום','day'],'معلومات تشريحية دقيقة':['מידע אנטומי מדויק','Accurate anatomical info'],'السن':['השן','Tooth'],'سن لبني (أطفال)':['שן חלב (ילדים)','Baby tooth (pediatric)'],'الفك العلوي':['לסת עליונה','Upper jaw'],'الفك السفلي':['לסת תחתונה','Lower jaw'],'يمين':['ימין','Right'],'يسار':['שמאל','Left'],'قاطعة مركزية':['שן חותכת מרכזית','Central incisor'],'قاطعة جانبية':['שן חותכת צדדית','Lateral incisor'],'ناب':['ניב','Canine'],'ضاحك أول':['טוחנת קדמית ראשונה','1st premolar'],'ضاحك ثاني':['טוחנת קדמית שנייה','2nd premolar'],'ضرس أول':['טוחנת ראשונה','1st molar'],'ضرس ثاني':['טוחנת שנייה','2nd molar'],'ضرس العقل':['שן בינה','Wisdom tooth'],'قاطعة مركزية لبنية':['חותכת חלב מרכזית','Primary central incisor'],'قاطعة جانبية لبنية':['חותכת חלב צדדית','Primary lateral incisor'],'ناب لبني':['ניב חלב','Primary canine'],'ضرس لبني أول':['טוחנת חלב ראשונה','Primary 1st molar'],'ضرس لبني ثاني':['טוחנת חלב שנייה','Primary 2nd molar'],'أحيانًا قناتان (لسانية/شفوية)':['לעיתים שני תעלות (לשונית/שפתית)','Sometimes 2 canals (lingual/labial)'],'غالبًا جذران (شفوي/لهائي)':['לרוב שני שורשים (חיצוני/חכי)','Usually 2 roots (buccal/palatal)'],'أحيانًا قناتان':['לעיתים שני תעלות','Sometimes 2 canals'],'MB1+MB2, DB, لهائي':['MB1+MB2, DB, חכי','MB1+MB2, DB, palatal'],'مسي شفوي، مسي لساني، بعيد':['מזיו-חיצוני, מזיו-לשוני, דיסטלי','Mesiobuccal, mesiolingual, distal'],'أحيانًا 4 قنوات':['לעיתים 4 תעלות','Sometimes 4 canals'],'تشريح متغير جدًا':['אנטומיה משתנה מאוד','Highly variable anatomy'],'تم تنزيل نسخة احتياطية':['גיבוי הורד בהצלחה','Backup downloaded'],'هذه الميزة متاحة فقط على متصفح كمبيوتر (Chrome أو Edge)':['תכונה זו זמינה רק בדפדפן מחשב (Chrome או Edge)','This feature is only available on a computer browser (Chrome or Edge)'],'تم اختيار المجلد — سيبدأ النسخ التلقائي الآن':['התיקייה נבחרה — הגיבוי האוטומטי יתחיל כעת','Folder selected — automatic backup will start now'],'تعذر اختيار المجلد':['לא ניתן לבחור תיקייה','Could not select the folder'],'تم إيقاف النسخ التلقائي على هذا الجهاز':['הגיבוי האוטומטי הופסק במכשיר זה','Automatic backup stopped on this device'],'النسخ التلقائي مفعّل على هذا الجهاز':['הגיבוי האוטומטי פעיל במכשיר זה','Automatic backup is enabled on this device'],'آخر نسخة':['גיבוי אחרון','Last backup'],'النسخ التلقائي غير مفعّل على هذا الجهاز':['הגיבוי האוטומטי אינו פעיל במכשיר זה','Automatic backup is not enabled on this device'],'سيتم دمج بيانات النسخة الاحتياطية مع البيانات الحالية (لن يتم حذف شيء). متابعة؟':['נתוני הגיבוי ישולבו עם הנתונים הקיימים (שום דבר לא יימחק). להמשיך?','The backup data will be merged with existing data (nothing will be deleted). Continue?'],'تم استيراد':['יובאו','Imported'],'سجل':['רשומות','records'],'ملف النسخة الاحتياطية غير صالح':['קובץ הגיבוי אינו תקין','Invalid backup file'],'صورة السن':['תמונת שן','Tooth photo'],'تم رفع صورة السن':['תמונת השן הועלתה','Tooth photo uploaded'],'صور أسنان محددة':['תמונות שיניים ספציפיות','Specific tooth photos'],'اضغط على السن لتحديده (يمكن اختيار أكثر من سن) — اضغط أيقونة 📷 لإضافة أو عرض صورة لهذا السن تحديدًا':['לחץ על שן לבחירתה (ניתן לבחור כמה שיניים) — לחץ על סמל 📷 להוספה או צפייה בתמונה של שן זו','Click a tooth to select it (multiple teeth allowed) — click the 📷 icon to add or view a photo of that specific tooth'],'صور الفحص السريري (داخل الفم)':['תמונות בדיקה קלינית (תוך-פומיות)','Clinical exam photos (intraoral)'],'التقط أو ارفع صورة لحالة الفم من الداخل لتوثيق الفحص والتشخيص':['צלם או העלה תמונה של מצב הפה מבפנים לתיעוד הבדיקה והאבחון','Take or upload a photo of the mouth from inside to document the exam and diagnosis'],'رفع الصورة':['העלאת תמונה','Upload photo'],'لا توجد صور فحص بعد':['אין עדיין תמונות בדיקה','No exam photos yet'],'صورة فحص داخل الفم':['תמונת בדיקה תוך-פומית','Intraoral exam photo'],'كل الصور والملفات المرفوعة لهذا المريض — يمكنك تحميلها أو طباعتها':['כל התמונות והקבצים שהועלו למטופל זה — ניתן להוריד או להדפיס אותם','All images and files uploaded for this patient — you can download or print them'],'تحميل الكل':['הורדת הכול','Download all'],'طباعة الكل':['הדפסת הכול','Print all'],'لا توجد ملفات مرفوعة':['לא הועלו קבצים','No files uploaded'],'تحميل':['הורדה','Download'],'طباعة':['הדפסה','Print'],'لا توجد ملفات':['אין קבצים','No files'],'يرجى السماح بالنوافذ المنبثقة للطباعة':['אנא אפשר חלונות קופצים להדפסה','Please allow pop-ups to print'],
 'المدفوعات والمستحقات':['תשלומים ויתרות','Payments & balances'],'بيانات العيادة والنسخ الاحتياطي':['פרטי המרפאה וגיבוי','Clinic info & backup'],
 'كل المواعيد':['כל התורים','All appointments'],'آخر المرضى':['מטופלים אחרונים','Recent patients'],'+ مريض جديد':['+ מטופל חדש','+ New patient'],'مريض جديد':['מטופל חדש','New patient'],
 'اختر قسمًا لعرض كل الإجراءات المسجلة فيه لجميع المرضى.':['בחר מדור כדי להציג את כל הטיפולים שנרשמו בו לכל המטופלים.','Choose a section to see all procedures recorded in it for all patients.'],
@@ -1714,6 +1880,7 @@ const L={
 'فتح مخطط الأسنان — بأي وقت ولأي مريض':['פתח תרשים שיניים — בכל עת ולכל מטופל','Open the tooth chart — any time, for any patient'],'🔍 تكبير / مريض آخر':['🔍 הגדל / מטופל אחר','🔍 Expand / other patient'],'🔍 مريض آخر':['🔍 מטופל אחר','🔍 Other patient'],'اختر مريضًا لعرض مخططه':['בחר מטופל להצגת התרשים שלו','Choose a patient to view their chart'],
 'النسخ الاحتياطي':['גיבוי','Backup'],'البيانات محفوظة داخل هذا المتصفح فقط. صدّر نسخة احتياطية بانتظام واحتفظ بها.':['הנתונים נשמרים בדפדפן זה בלבד. ייצא גיבוי באופן קבוע ושמור אותו.','Data is stored only in this browser. Export a backup regularly and keep it safe.'],
 '⬇ تصدير نسخة احتياطية':['⬇ ייצוא גיבוי','⬇ Export backup'],'⬆ استعادة':['⬆ שחזור','⬆ Restore'],
+'جدول العمل':['לוח עבודה','Work schedule'],'🕒 تعديل جدول عملي':['🕒 עריכת לוח העבודה שלי','🕒 Edit my work schedule'],'من الساعة':['משעה','From'],'إلى الساعة':['עד שעה','To'],'تم حفظ جدول العمل':['לוח העבודה נשמר','Work schedule saved'],'الأحد':['ראשון','Sunday'],'الاثنين':['שני','Monday'],'الثلاثاء':['שלישי','Tuesday'],'الأربعاء':['רביעי','Wednesday'],'الخميس':['חמישי','Thursday'],'الجمعة':['שישי','Friday'],'السبت':['שבת','Saturday'],'الدكتور':['הרופא','Dr.'],'لا يعمل يوم':['לא עובד ביום','does not work on'],'لا يمكن حجز موعد بهذا اليوم':['לא ניתן לקבוע תור ביום זה','An appointment can\'t be booked on this day'],
 'تعديل بيانات المريض':['עריכת פרטי מטופל','Edit patient'],'الاسم الكامل *':['שם מלא *','Full name *'],'تاريخ الميلاد':['תאריך לידה','Date of birth'],'الجنس':['מין','Gender'],'ذكر':['זכר','Male'],'أنثى':['נקבה','Female'],'العنوان':['כתובת','Address'],'رقم الملف':['מספר תיק','File no.'],'رقم الهوية':['מספר תעודת זהות','ID number'],'هوية:':['ת.ז.:','ID:'],'بحث بالاسم أو الهاتف أو رقم الهوية...':['חיפוש לפי שם, טלפון או ת.ז...','Search by name, phone or ID...'],'ملاحظات':['הערות','Notes'],'إلغاء':['ביטול','Cancel'],
 'الوقت':['שעה','Time'],'السبب':['סיבה','Reason'],'الاسم':['שם','Name'],'العمر':['גיל','Age'],'الحالة المالية':['מצב כספי','Balance status'],'فتح':['פתח','Open'],'مسدد':['שולם','Paid up'],'متبقي':['יתרה','Due'],
 'السن':['שן','Tooth'],'الطريقة':['אמצעי','Method'],'الحالة':['סטטוס','Status'],'تنبيه المريض':['תזכורת למטופל','Patient reminder'],'الموعد':['תור','Appointment'],'المتبقي عليه':['יתרה לתשלום','Balance due'],'الشهر':['חודש','Month'],'عدد الدفعات':['מספר תשלומים','Payments'],'الإجمالي':['סה"כ','Total'],
@@ -1772,6 +1939,8 @@ const L={
 'تلوين المواعيد':['צביעת התורים','Appointment color-coding'],'حسب الحالة':['לפי סטטוס','By status'],'حسب نوع العلاج':['לפי סוג הטיפול','By treatment type'],'حسب المريض':['לפי מטופל','By patient'],
 'لا توجد مواعيد في هذه السنة':['אין תורים בשנה זו','No appointments this year'],'بدون سبب':['ללא סיבה','No reason given'],
 'أدخل لون جديد (hex أو hsl)':['הזן צבע חדש (hex או hsl)','Enter a new color (hex or hsl)'],'تم تحديث اللون':['הצבע עודכן','Color updated'],
+'الدكتور المعالج':['הרופא המטפל','Treating doctor'],'غير محدد':['לא צוין','Unspecified'],'غير مصرح لك بفتح ملف هذا المريض':['אינך מורשה לפתוח את תיק המטופל הזה','You are not authorized to open this patient\'s file'],
+'دخول كـ':['התחבר בתור','Log in as'],'غير مسموح':['לא מורשה','Not allowed'],'هذا الحساب موقوف':['החשבון הזה מושבת','This account is suspended'],'انتقلت إلى حساب':['עברת לחשבון','Switched to account'],'رجعت لحسابك':['חזרת לחשבונך','Switched back to your account'],'أنت الآن بحساب':['אתה כעת בחשבון','You are now in the account of'],'⬅ رجوع لحسابي':['⬅ חזרה לחשבוני','⬅ Back to my account'],
 };
 (()=>{const strip=x=>{let i=0;while(i<x.length&&!/[\p{L}\p{N}]/u.test(x[i]))i++;return x.slice(i)};for(const [k,v] of Object.entries(L)){const ks=strip(k);if(ks!==k&&!L[ks])L[ks]=[strip(v[0]),strip(v[1])]}})();
 function tr(s){if(!L[s])return s;if(lang==='ar')return s;return L[s][lang==='he'?0:1]}
