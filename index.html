@@ -592,7 +592,10 @@ main{width:100%}
     <div id="tab-pay" class="tab">
       <div class="row between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <div></div>
-        <button class="btn small secondary" onclick="printInvoice()">🧾 طباعة فاتورة</button>
+        <div class="row" style="gap:6px">
+          <button class="btn small secondary" onclick="printInvoice()">🧾 طباعة فاتورة</button>
+          <button class="btn small secondary mgr-only" style="display:none" onclick="emailInvoice()">📧 إرسال الفاتورة بالإيميل</button>
+        </div>
       </div>
       <div class="grid grid-4" style="margin-bottom:14px">
         <div class="card stat"><div class="num" id="payTotalCost">0</div><div class="lbl">تكلفة العلاج</div></div>
@@ -714,6 +717,16 @@ main{width:100%}
       </div>
     </div>
     <p id="backupNoSupport" style="display:none;color:var(--muted);font-size:.85rem">النسخ التلقائي المباشر إلى مجلد على الجهاز متاح فقط على متصفح كمبيوتر (Chrome أو Edge). على الجوال استخدم زر "تنزيل نسخة احتياطية الآن" بشكل دوري.</p>
+  </div>
+  <div class="card mgr-only">
+    <h2>📧 إرسال ملف بالإيميل</h2>
+    <p style="color:var(--muted);margin-bottom:10px">ارفع أي ملف من جهازك (Word، Excel، PDF، صورة...) لإرساله بالإيميل. لو الملف صورة يمكنك تحويلها أولًا إلى PDF جاهز للإرسال.</p>
+    <div class="field"><label>الملف</label><input type="file" id="emlPickFile" onchange="emlOnFilePicked(this)"></div>
+    <div id="emlConvertRow" style="display:none;margin-bottom:8px">
+      <button class="btn small secondary" onclick="emlConvertPickedToPdf()">📄 تحويل الصورة إلى PDF</button>
+      <span id="emlConvertedNote" style="display:none;color:var(--muted);font-size:.85rem;margin-inline-start:8px"></span>
+    </div>
+    <button class="btn" onclick="emlSendPicked()">📧 متابعة الإرسال بالإيميل</button>
   </div>
   <div class="card doc-only">
     <h2>🔐 حماية البيانات الطبية (الطبيب فقط)</h2>
@@ -1079,8 +1092,61 @@ const XK={xray:'X-ray',bitewing:'Bitewing',panorama:'Panorama',ceph:'Cephalometr
 const XK_ICON={xray:'🦷',bitewing:'🔬',panorama:'🌐',ceph:'👤',cbct:'🧊',ct:'🩻',photo:'📷',intraoral:'👄',tooth_photo:'🦷',document:'📎',other:'📁'};
 const XK_ORDER=Object.keys(XK);
 function xrayFolders(list,delBtn){const g={};list.forEach(x=>{const k=XK[x.kind]?x.kind:'other';(g[k]=g[k]||[]).push(x)});
-  return XK_ORDER.filter(k=>g[k]).map(k=>`<details class="folder" open><summary><span>${XK_ICON[k]} ${tr(XK[k])}</span><span class="badge ok">${g[k].length} ${tr('صورة')}</span></summary><div class="xrays">${g[k].map(x=>`<div class="xray">${xrayThumb(x)}<div class="meta">${x.date} ${esc(x.note)}${x.fileName?` <span style="color:var(--muted)">(${esc(x.fileName)})</span>`:''}${delBtn?` <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a>`:''}<div class="row" style="gap:4px;margin-top:4px"><button class="btn small" style="flex:1" onclick="downloadXrayItem('${x.id}')">${tr('تحميل')}</button><button class="btn small" style="flex:1" onclick="printXrayItem('${x.id}')">${tr('طباعة')}</button></div><button class="btn small" style="margin-top:4px;width:100%" onclick="aiXray('${x.id}')">🤖 ${tr('تحليل بالذكاء الاصطناعي')}</button></div><div id="aiX_${x.id}">${x.ai?`<div class="ai-box" style="font-size:.8rem;max-height:220px;overflow:auto"><h4>🩻 ${x.ai.date}</h4>${esc(x.ai.text)}</div>`:''}</div></div>`).join('')}</div></details>`).join('')}
+  const isMgr=curUser&&curUser.role==='manager';
+  return XK_ORDER.filter(k=>g[k]).map(k=>`<details class="folder" open><summary><span>${XK_ICON[k]} ${tr(XK[k])}</span><span class="badge ok">${g[k].length} ${tr('صورة')}</span></summary><div class="xrays">${g[k].map(x=>`<div class="xray">${xrayThumb(x)}<div class="meta">${x.date} ${esc(x.note)}${x.fileName?` <span style="color:var(--muted)">(${esc(x.fileName)})</span>`:''}${delBtn?` <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a>`:''}<div class="row" style="gap:4px;margin-top:4px"><button class="btn small" style="flex:1" onclick="downloadXrayItem('${x.id}')">${tr('تحميل')}</button><button class="btn small" style="flex:1" onclick="printXrayItem('${x.id}')">${tr('طباعة')}</button></div>${isMgr?`<button class="btn small" style="margin-top:4px;width:100%" onclick="emailXrayItem('${x.id}')">📧 ${tr('إرسال بالإيميل')}</button>`:''}<button class="btn small" style="margin-top:4px;width:100%" onclick="aiXray('${x.id}')">🤖 ${tr('تحليل بالذكاء الاصطناعي')}</button></div><div id="aiX_${x.id}">${x.ai?`<div class="ai-box" style="font-size:.8rem;max-height:220px;overflow:auto"><h4>🩻 ${x.ai.date}</h4>${esc(x.ai.text)}</div>`:''}</div></div>`).join('')}</div></details>`).join('')}
 function dataUrlToBlob(dataUrl){const [head,b64]=dataUrl.split(',');const mime=(head.match(/data:(.*?);/)||[])[1]||'image/jpeg';const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return new Blob([arr],{type:mime})}
+
+/* ---------- Send-file-by-email (manager only) ----------
+   Browsers cannot attach a file to an email automatically for security reasons, so the flow is:
+   1) make sure the file is saved on the device (download it, or "Save as PDF" via the print dialog for an
+   image→PDF conversion — the same print-based approach already used for X-rays/invoices, with no external
+   dependency), 2) open the default mail app pre-filled with recipient/subject/body reminding the manager
+   to attach that file. */
+/* Shared popup: given a Blob/File ready to send, download it and open the mail app with recipient/subject/body */
+function openEmailSendPopup(blob,fileName,subjectDefault){
+  const box=document.createElement('div');box.className='alertbox';
+  box.innerHTML=`<b>📧 ${tr('إرسال الملف بالإيميل')}</b>
+    <p style="color:var(--muted);font-size:.82rem;margin:6px 0">📎 ${esc(fileName)}</p>
+    <div class="field"><label>${tr('بريد المستلم')}</label><input id="emlTo" type="email" placeholder="name@example.com"></div>
+    <div class="field"><label>${tr('الموضوع')}</label><input id="emlSubject" value="${esc(subjectDefault||'')}"></div>
+    <div class="field"><label>${tr('نص الرسالة')} (${tr('اختياري')})</label><textarea id="emlBody" rows="3"></textarea></div>
+    <p style="color:var(--muted);font-size:.78rem;margin:4px 0 8px">ℹ️ ${tr('سيتم تنزيل الملف على جهازك ثم فتح تطبيق الإيميل — أرفق الملف المُنزَّل يدويًا قبل الإرسال (المتصفح لا يسمح بإرفاق الملفات تلقائيًا لأسباب أمنية)')}.</p>
+    <div class="row" style="gap:6px">
+      <button class="btn small" id="emlSendBtn">⬇️ ${tr('تنزيل وفتح الإيميل')}</button>
+      <button class="btn small secondary" onclick="this.closest('.alertbox').remove()">${tr('إلغاء')}</button>
+    </div>`;
+  let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);
+  box.querySelector('#emlSendBtn').onclick=()=>{
+    const to=box.querySelector('#emlTo').value.trim();if(!to)return toast(tr('اكتب بريد المستلم'));
+    const subject=box.querySelector('#emlSubject').value.trim()||fileName;
+    const bodyText=box.querySelector('#emlBody').value.trim();
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    const note=(bodyText?bodyText+'\n\n':'')+'📎 '+tr('تم تنزيل الملف باسم')+' "'+fileName+'" — '+tr('الرجاء إرفاقه يدويًا بهذه الرسالة قبل الإرسال.');
+    const mailto='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(note);
+    toast('⬇️ '+tr('تم تنزيل الملف — سيتم فتح تطبيق الإيميل الآن'));
+    box.remove();setTimeout(()=>{window.location.href=mailto},500)}}
+async function emailXrayItem(id){const x=await get('xrays',id);if(!x)return;
+  const blob=dataUrlToBlob(x.data);const ext=extFromMime(x.mime,x.fileName);
+  const fileName=`${((typeof currentP!=='undefined'&&currentP&&currentP.name)||'file').replace(/\s+/g,'_')}_${x.date}_${x.kind}.${ext}`;
+  openEmailSendPopup(blob,fileName,tr(XK[x.kind]||x.kind)+' — '+((typeof currentP!=='undefined'&&currentP&&currentP.name)||''))}
+/* General "upload any file, optionally convert an image to PDF via the print dialog, then send by email" — Settings, manager only.
+   The picked file already sits on the manager's own device, so there is no need to re-download the original —
+   we only produce a new file (via print→Save as PDF) when they actually choose to convert an image. */
+let emlPickedFile=null,emlPickedDataUrl=null;
+function emlOnFilePicked(input){emlPickedFile=input.files[0]||null;emlPickedDataUrl=null;
+  if($('emlConvertRow'))$('emlConvertRow').style.display=(emlPickedFile&&emlPickedFile.type.startsWith('image/'))?'':'none';
+  if($('emlConvertedNote'))$('emlConvertedNote').style.display='none'}
+async function emlConvertPickedToPdf(){if(!emlPickedFile)return toast(tr('اختر ملفًا أولًا'));
+  if(!emlPickedFile.type.startsWith('image/'))return toast(tr('التحويل متاح للصور فقط حاليًا'));
+  const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error||new Error('file-read-error'));r.readAsDataURL(emlPickedFile)}).catch(()=>null);
+  if(!dataUrl)return toast(tr('تعذّر قراءة الصورة'));
+  const w=window.open('','_blank');if(!w)return toast(tr('يرجى السماح بالنوافذ المنبثقة للطباعة'));
+  w.document.write(`<html><head><title>${tr('تحويل إلى PDF')}</title></head><body style="margin:0;text-align:center"><img src="${dataUrl}" style="max-width:100%"></body></html>`);
+  w.document.close();setTimeout(()=>{w.focus();w.print()},400);
+  if($('emlConvertedNote')){$('emlConvertedNote').textContent='🖨️ '+tr('اختر «حفظ كـ PDF» من نافذة الطباعة، ثم اضغط «متابعة الإرسال» وأرفق ملف الـ PDF الذي حفظته');$('emlConvertedNote').style.display=''}}
+function emlSendPicked(){if(!emlPickedFile)return toast(tr('اختر ملفًا أولًا'));
+  openEmailPromptOnly(emlPickedFile.name,'📎 '+tr('لا تنسَ إرفاق الملف')+' "'+emlPickedFile.name+'" ('+tr('أو ملف الـ PDF الذي حفظته لو حوّلت صورة')+') '+tr('قبل الإرسال'))}
 function downloadXrayData(x){const blob=dataUrlToBlob(x.data);const url=URL.createObjectURL(blob);const a=document.createElement('a');const ext=extFromMime(x.mime,x.fileName);a.href=url;a.download=`${((typeof currentP!=='undefined'&&currentP&&currentP.name)||'file').replace(/\s+/g,'_')}_${x.date}_${x.kind}.${ext}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000)}
 async function downloadXrayItem(id){const x=await get('xrays',id);if(x)downloadXrayData(x)}
 function printXrayData(list){const w=window.open('','_blank');if(!w)return toast(tr('يرجى السماح بالنوافذ المنبثقة للطباعة'));
@@ -1420,6 +1486,30 @@ async function printInvoice(){const p=currentP;if(!p)return;
 <div class="tot"><div>${tr('إجمالي تكلفة العلاج')}: ${money(cost)}</div><div>${tr('إجمالي المدفوع')}: ${money(paid)}</div><div><b>${tr('المتبقي')}: ${money(due)}</b></div></div>
 </body></html>`);
   w.document.close();setTimeout(()=>{w.focus();w.print()},400)}
+/* Prompt-only email popup (no auto-download step) — used after the invoice print dialog, where the manager
+   saves the PDF themselves via "Save as PDF", then this just opens the mail app pre-filled to send it. */
+function openEmailPromptOnly(subjectDefault,noteText){
+  const box=document.createElement('div');box.className='alertbox';
+  box.innerHTML=`<b>📧 ${tr('إرسال بالإيميل')}</b>
+    <p style="color:var(--muted);font-size:.82rem;margin:6px 0">${esc(noteText||'')}</p>
+    <div class="field"><label>${tr('بريد المستلم')}</label><input id="emlTo2" type="email" placeholder="name@example.com"></div>
+    <div class="field"><label>${tr('الموضوع')}</label><input id="emlSubject2" value="${esc(subjectDefault||'')}"></div>
+    <div class="field"><label>${tr('نص الرسالة')} (${tr('اختياري')})</label><textarea id="emlBody2" rows="3"></textarea></div>
+    <div class="row" style="gap:6px">
+      <button class="btn small" id="emlSendBtn2">📧 ${tr('فتح تطبيق الإيميل')}</button>
+      <button class="btn small secondary" onclick="this.closest('.alertbox').remove()">${tr('إلغاء')}</button>
+    </div>`;
+  let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);
+  box.querySelector('#emlSendBtn2').onclick=()=>{
+    const to=box.querySelector('#emlTo2').value.trim();if(!to)return toast(tr('اكتب بريد المستلم'));
+    const subject=box.querySelector('#emlSubject2').value.trim()||subjectDefault||'';
+    const bodyText=box.querySelector('#emlBody2').value.trim();
+    const mailto='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(bodyText);
+    box.remove();window.location.href=mailto}}
+async function emailInvoice(){const p=currentP;if(!p)return;
+  toast('🖨️ '+tr('اختر «حفظ كـ PDF» من نافذة الطباعة، ثم أرفقه بالإيميل يدويًا'));
+  await printInvoice();
+  setTimeout(()=>openEmailPromptOnly(tr('فاتورة')+' — '+p.name,'📎 '+tr('لا تنسَ إرفاق ملف الفاتورة (PDF) الذي حفظته للتو قبل الإرسال')),300)}
 
 /* ---------- Appointments ---------- */
 async function renderAppointments(){let [ps,aps]=await Promise.all([getAll('patients'),getAll('appointments')]);aps=byActive(aps);updateNotifStatus();renderDueReminders();
@@ -1914,6 +2004,19 @@ async function importData(){const f=$('importFile').files[0];if(!f)return toast(
 const LANGS={ar:{name:'العربية',dir:'rtl',locale:'ar-EG',num:'ar'},he:{name:'עברית',dir:'rtl',locale:'he-IL',num:'he'},en:{name:'English',dir:'ltr',locale:'en-GB',num:'en'}};
 let lang=(()=>{try{return localStorage.getItem('lang')||'ar'}catch(e){return'ar'}})();
 const L={
+'إرسال بالإيميل':['שליחה באימייל','Send by email'],'إرسال ملف بالإيميل':['שליחת קובץ באימייל','Send file by email'],'إرسال الفاتورة بالإيميل':['שליחת החשבונית באימייל','Email the invoice'],'إرسال الملف بالإيميل':['שליחת הקובץ באימייל','Send the file by email'],
+'بريد المستلم':['אימייל הנמען','Recipient email'],'الموضوع':['נושא','Subject'],'نص الرسالة':['תוכן ההודעה','Message body'],'اختياري':['אופציונלי','optional'],
+'تنزيل وفتح الإيميل':['הורדה ופתיחת האימייל','Download & open email'],'فتح تطبيق الإيميل':['פתיחת אפליקציית האימייל','Open email app'],'اكتب بريد المستلم':['הזן את אימייל הנמען','Enter the recipient email'],
+'ارفع أي ملف من جهازك (Word، Excel، PDF، صورة...) لإرساله بالإيميل. لو الملف صورة يمكنك تحويلها أولًا إلى PDF جاهز للإرسال.':['העלה כל קובץ מהמכשיר שלך (Word, Excel, PDF, תמונה...) לשליחה באימייל. אם הקובץ תמונה, ניתן להמיר אותה תחילה ל-PDF מוכן לשליחה.','Upload any file from your device (Word, Excel, PDF, image...) to send by email. If it\'s an image, you can first convert it to a ready-to-send PDF.'],
+'تحويل الصورة إلى PDF':['המרת התמונה ל-PDF','Convert image to PDF'],'متابعة الإرسال بالإيميل':['להמשיך לשליחה באימייל','Continue to send by email'],
+'اختر ملفًا أولًا':['בחר קובץ תחילה','Choose a file first'],'التحويل متاح للصور فقط حاليًا':['ההמרה זמינה כרגע רק לתמונות','Conversion is currently image-only'],'تعذّر قراءة الصورة':['לא ניתן לקרוא את התמונה','Could not read the image'],
+'تم تنزيل الملف باسم':['הקובץ הורד בשם','The file was downloaded as'],'الرجاء إرفاقه يدويًا بهذه الرسالة قبل الإرسال.':['נא לצרף אותו ידנית להודעה זו לפני השליחה.','Please attach it to this message manually before sending.'],
+'تم تنزيل الملف — سيتم فتح تطبيق الإيميل الآن':['הקובץ הורד — אפליקציית האימייל תיפתח כעת','File downloaded — the email app will open now'],
+'اختر «حفظ كـ PDF» من نافذة الطباعة، ثم أرفقه بالإيميل يدويًا':['בחר "שמירה כ-PDF" בחלון ההדפסה, ולאחר מכן צרף אותו לאימייל ידנית','Choose "Save as PDF" in the print window, then attach it to the email manually'],
+'لا تنسَ إرفاق ملف الفاتورة (PDF) الذي حفظته للتو قبل الإرسال':['אל תשכח לצרף את קובץ החשבונית (PDF) ששמרת כעת לפני השליחה','Don\'t forget to attach the invoice PDF you just saved before sending'],
+'لا تنسَ إرفاق الملف':['אל תשכח לצרף את הקובץ','Don\'t forget to attach the file'],'أو ملف الـ PDF الذي حفظته لو حوّلت صورة':['או קובץ ה-PDF ששמרת אם המרת תמונה','or the PDF you saved if you converted an image'],'قبل الإرسال':['לפני השליחה','before sending'],
+'اختر «حفظ كـ PDF» من نافذة الطباعة، ثم اضغط «متابعة الإرسال» وأرفق ملف الـ PDF الذي حفظته':['בחר "שמירה כ-PDF" בחלון ההדפסה, ואז לחץ "המשך לשליחה" וצרף את קובץ ה-PDF ששמרת','Choose "Save as PDF" in the print window, then click "Continue to send" and attach the PDF you saved'],
+'اضغط لإضافة موعد بهذا اليوم والوقت':['לחץ להוספת תור ביום ובשעה אלו','Click to add an appointment at this day and time'],
 'عيادة الأسنان':['מרפאת שיניים','Dental Clinic'],
 'الرئيسية':['ראשי','Home'],'المرضى':['מטופלים','Patients'],'المواعيد':['תורים','Appointments'],'العلاج':['טיפולים','Treatments'],'الأشعة':['צילומים','X-rays'],'الدفعات':['תשלומים','Payments'],'الإعدادات':['הגדרות','Settings'],
 'مريض':['מטופלים','patients'],'مواعيد اليوم':['תורים היום','Today\'s appointments'],'إجمالي المدفوعات':['סה"כ תשלומים','Total payments'],'مبالغ مستحقة':['יתרות לתשלום','Outstanding'],
