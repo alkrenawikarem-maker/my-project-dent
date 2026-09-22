@@ -384,27 +384,19 @@ main{width:100%}
       <div id="recentPatients"></div>
     </div>
   </div>
-  <div class="card" id="contactCard">
-    <h2>💬 تواصل معنا / استمارة تحسين الخدمة</h2>
-    <p style="color:var(--muted);margin-bottom:12px">رأيك يهمنا — شاركنا ملاحظاتك أو اقتراحاتك لتحسين الخدمة، أو تواصل معنا مباشرة.</p>
-    <div class="grid grid-2">
-      <div class="field"><label>الاسم</label><input id="fbName"></div>
-      <div class="field"><label>الهاتف أو البريد</label><input id="fbContact"></div>
-      <div class="field"><label>نوع الرسالة</label><select id="fbType"><option value="suggestion">اقتراح لتحسين الخدمة</option><option value="complaint">شكوى</option><option value="praise">شكر وتقدير</option><option value="question">استفسار</option><option value="appointment">طلب موعد</option></select></div>
-      <div class="field"><label>تقييم الخدمة</label><div class="stars" id="fbStars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div></div>
-    </div>
-    <div class="field"><label>الرسالة *</label><textarea id="fbMsg" placeholder="اكتب ملاحظتك أو اقتراحك هنا..."></textarea></div>
-    <div class="row">
-      <button class="btn" onclick="sendFeedback('save')">📩 إرسال</button>
-      <button class="btn small wa" onclick="sendFeedback('wa')">📲 إرسال عبر واتساب</button>
-      <button class="btn secondary small" onclick="sendFeedback('mail')">✉️ إرسال عبر البريد</button>
-    </div>
-    <div id="fbThanks" style="display:none;margin-top:10px;color:var(--ok);font-weight:700">✔ شكرًا لك! تم استلام رسالتك.</div>
-  </div>
+
 </section>
 
 <!-- Treatments (global) -->
 <section id="view-treatments" class="view">
+  <div class="card subtle" id="treatGlobalChartCard" style="display:none">
+    <div class="row between" style="align-items:center;flex-wrap:wrap">
+      <h3 style="margin:0">🦷 مخطط أسنان: <span id="treatGlobalChartName" style="color:var(--brand)"></span></h3>
+      <div class="row" style="gap:6px"><button class="btn small secondary" onclick="openChartModal()" title="فتح المخطط بأي وقت ولأي مريض">🔍 تكبير / مريض آخر</button></div>
+    </div>
+    <div class="odontogram" id="treatGlobalChart"></div>
+    <div id="treatGlobalSummary" class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px"></div>
+  </div>
   <div class="card">
     <h2>أقسام العلاج</h2>
     <p style="color:var(--muted);margin-bottom:10px">اختر مريضًا من أعلى الصفحة، ثم اختر قسمًا لعرض إجراءاته وتكلفتها الخاصة بذلك المريض فقط.</p>
@@ -770,14 +762,6 @@ main{width:100%}
     <button class="btn" onclick="saveSettings()">حفظ</button>
   </div>
   <div class="card">
-    <h2>📥 صندوق الملاحظات والاقتراحات</h2>
-    <p style="color:var(--muted);margin-bottom:8px">الرسائل المرسلة من استمارة الصفحة الرئيسية.</p>
-    <div class="grid grid-2" style="margin-bottom:10px">
-      <div class="field"><label>بريد استلام الرسائل (اختياري)</label><input id="setEmail" placeholder="clinic@example.com"></div>
-    </div>
-    <div id="fbList"></div>
-  </div>
-  <div class="card">
     <h2>النسخ الاحتياطي</h2>
     <p style="color:var(--muted);margin-bottom:12px">البيانات محفوظة داخل هذا المتصفح فقط. صدّر نسخة احتياطية بانتظام واحتفظ بها.</p>
     <div class="row">
@@ -865,7 +849,7 @@ main{width:100%}
 <script>
 /* ---------- Cloud database (Firebase Firestore) — replaces local IndexedDB so all devices share the same data ---------- */
 const DB_NAME='dentalClinicDB', DB_VER=2; // legacy local database name — kept only to migrate old local data into the cloud once
-const STORES=['patients','treatments','xrays','payments','appointments','settings','feedback'];
+const STORES=['patients','treatments','xrays','payments','appointments','settings'];
 const firebaseConfig={apiKey:"AIzaSyDlN61dcvTUYLEHgNrn0LIID3H59jrPeic",authDomain:"dentivo-7f675.firebaseapp.com",projectId:"dentivo-7f675",storageBucket:"dentivo-7f675.firebasestorage.app",messagingSenderId:"221252626595",appId:"1:221252626595:web:c502ed01f3b0d38fb2f716"};
 firebase.initializeApp(firebaseConfig);
 const fdb=firebase.firestore();
@@ -1765,23 +1749,59 @@ async function renderYearCalendar(){const year=new Date().getFullYear()+calYearO
   $('ycBody').innerHTML=rows||`<div class="empty">${tr('لا توجد مواعيد في هذه السنة')}</div>`}
 
 /* ---------- Global: Treatments by category ---------- */
-const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':'🩺','خلع':'🔧','تركيبات (تاج/جسر)':'👑','زراعة':'🔩','تقويم':'📐','تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
-async function renderTreatmentsView(cat){if(isLocked()){$('treatCats').innerHTML=lockedHtml();$('treatCatCard').style.display='none';return}
+/* Category-tile icons drawn as small tooth-shaped SVGs (instead of generic emoji like a wrench for extraction
+   or a stethoscope for root canal), so each treatment type is recognizable as an actual dental icon. */
+const TOOTH_OUTLINE_D='M12 4 C8 4 5.5 6.5 5.5 10 C5.5 13.5 7 16 8.2 19 C8.8 20.4 9.8 20.4 10.2 19 C10.6 17.8 11.2 17.2 12 17.2 C12.8 17.2 13.4 17.8 13.8 19 C14.2 20.4 15.2 20.4 15.8 19 C17 16 18.5 13.5 18.5 10 C18.5 6.5 16 4 12 4 Z';
+/* Fixed-pixel width/height attributes (not just viewBox) so these render at a consistent small "emoji-like"
+   size wherever TREAT_ICONS is dropped in — a 46px tile box, a tiny tooth-number badge, a summary pill, or a
+   table cell — instead of inheriting each container's font-size/width and either exploding or vanishing. */
+const EXTRACTION_TILE_SVG=`<svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-3px">
+  <path d="${TOOTH_OUTLINE_D}" fill="#e2e8f0" stroke="#64748b" stroke-width="1"/>
+  <line x1="6" y1="19" x2="18" y2="7" stroke="#ef4444" stroke-width="1.7" stroke-linecap="round"/>
+</svg>`;
+const RCT_TILE_SVG=`<svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-3px">
+  <path d="${TOOTH_OUTLINE_D}" fill="#f1f5f9" stroke="#64748b" stroke-width="1"/>
+  <path d="M9.3 7.5 L14.7 7.5 L13.5 11.5 L10.5 11.5 Z" fill="#ef4444" stroke="#b91c1c" stroke-width=".6"/>
+  <path d="M12 11.5 L12 18.5" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round"/>
+</svg>`;
+const BRACES_TILE_SVG=`<svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-3px">
+  <path d="${TOOTH_OUTLINE_D}" fill="#f1f5f9" stroke="#64748b" stroke-width="1"/>
+  <line x1="3" y1="11" x2="21" y2="11" stroke="#cbd5e1" stroke-width="1.6"/>
+  <rect x="9" y="8.3" width="6" height="6" rx="1.3" fill="#e5e7eb" stroke="#64748b" stroke-width=".9"/>
+  <circle cx="12" cy="11.3" r="1.4" fill="#8b5cf6"/>
+</svg>`;
+const IMPLANT_TILE_SVG=`<svg viewBox="0 0 24 40" width="12" height="20" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-5px">
+  <ellipse cx="12" cy="6" rx="7.2" ry="5.2" fill="#f8fafc" stroke="#94a3b8" stroke-width="1"/>
+  <path d="M7 8.5 L9 14 L15 14 L17 8.5 Z" fill="#9aa7b4" stroke="#64748b" stroke-width=".6"/>
+  <path d="M9.4 14 L14.6 14 L13.3 34 Q12 37.2 10.7 34 Z" fill="#cbd5e1" stroke="#64748b" stroke-width=".8"/>
+  <path d="M9.6 17h4.8M9.4 20h5.2M9.2 23h5.6M9 26h6M8.9 29h6.2M9 31.7h5.7" stroke="#64748b" stroke-width=".9" stroke-linecap="round"/>
+</svg>`;
+const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':RCT_TILE_SVG,'خلع':EXTRACTION_TILE_SVG,'تركيبات (تاج/جسر)':'👑','زراعة':IMPLANT_TILE_SVG,'تقويم':BRACES_TILE_SVG,'تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
+async function renderTreatmentsView(cat){if(isLocked()){$('treatCats').innerHTML=lockedHtml();$('treatCatCard').style.display='none';$('treatGlobalChartCard').style.display='none';return}
   const pid=AP();
-  if(!pid){$('treatCats').innerHTML='<div class="empty">'+tr('اختر مريضًا من أعلى الصفحة لعرض علاجاته وتكاليفه')+'</div>';$('treatCatCard').style.display='none';return}
+  if(!pid){$('treatCats').innerHTML='<div class="empty">'+tr('اختر مريضًا من أعلى الصفحة لعرض علاجاته وتكاليفه')+'</div>';$('treatCatCard').style.display='none';$('treatGlobalChartCard').style.display='none';return}
   let [trs,ps]=await Promise.all([getAll('treatments'),getAll('patients')]);trs=byActive(trs);
   ps=visiblePatients(ps);const vIds=new Set(ps.map(p=>p.id));trs=trs.filter(t=>vIds.has(t.patientId));
-  if(!vIds.has(pid)){$('treatCats').innerHTML='<div class="empty">'+tr('اختر مريضًا من أعلى الصفحة لعرض علاجاته وتكاليفه')+'</div>';$('treatCatCard').style.display='none';return}
+  if(!vIds.has(pid)){$('treatCats').innerHTML='<div class="empty">'+tr('اختر مريضًا من أعلى الصفحة لعرض علاجاته وتكاليفه')+'</div>';$('treatCatCard').style.display='none';$('treatGlobalChartCard').style.display='none';return}
   trs=trs.filter(t=>t.patientId===pid);
-  const pm=Object.fromEntries(ps.map(p=>[p.id,p]));
+  /* Always show the patient's tooth chart at the top of the treatments section, so it's visible the moment
+     a patient is selected — no need to click into a category first. */
+  const patient=ps.find(p=>p.id===pid);
+  if(patient){$('treatGlobalChartCard').style.display='';$('treatGlobalChartName').textContent=patient.name;
+    const{chart:gChart,summary:gSummary}=await buildToothChartMarkup(patient,true);
+    $('treatGlobalChart').innerHTML=gChart;$('treatGlobalSummary').innerHTML=gSummary}
   const cats=[...$('trType').options].map(o=>o.value);
   $('treatCats').innerHTML=cats.map(c=>{const l=trs.filter(t=>t.type===c);const sum=l.reduce((a,t)=>a+Number(t.cost||0),0);
-    return `<div class="tile" onclick="renderTreatmentsView('${c}')"><div class="ico">${TREAT_ICONS[c]||'📋'}</div><div class="t">${tr(c)}</div><div class="d">${l.length} ${tr('إجراء')} • ${money(sum)}</div></div>`}).join('');
-  if(!cat){$('treatCatCard').style.display='none';return}
-  const l=trs.filter(t=>t.type===cat).sort((a,b)=>b.date.localeCompare(a.date));
-  $('treatCatCard').style.display='block';$('treatCatTitle').textContent=(TREAT_ICONS[cat]||'')+' '+tr(cat)+' ('+l.length+')';
-  $('treatCatList').innerHTML=l.length?'<table><tr><th>التاريخ</th><th>المريض</th><th>السن</th><th>التفاصيل</th><th>التكلفة</th></tr>'+l.map(t=>`<tr><td>${t.date}</td><td><a href="#" onclick="openPatient('${t.patientId}');return false">${esc(pm[t.patientId]?.name||'—')}</a></td><td>${esc(t.tooth)}</td><td>${esc(t.notes)}</td><td class="money">${money(t.cost)}</td></tr>`).join('')+'</table>':'<div class="empty">لا توجد إجراءات في هذا القسم بعد</div>';
-  $('treatCatCard').scrollIntoView({behavior:'smooth'})}
+    return `<div class="tile${cat===c?' active':''}" onclick="renderTreatmentsView('${c}')"><div class="ico">${TREAT_ICONS[c]||'📋'}</div><div class="t">${tr(c)}</div><div class="d">${l.length} ${tr('إجراء')} • ${money(sum)}</div></div>`}).join('');
+  /* Always show every tooth's treatments stacked one under another, in tooth-number order — not only after
+     picking a category — so the whole patient's treatment history reads top-to-bottom in one place. */
+  const list=(cat?trs.filter(t=>t.type===cat):trs).slice().sort((a,b)=>{
+    const ta=parseInt((a.tooth||'').split(',')[0])||0,tb=parseInt((b.tooth||'').split(',')[0])||0;
+    return ta-tb||a.date.localeCompare(b.date)});
+  $('treatCatCard').style.display='block';
+  $('treatCatTitle').textContent=cat?(TREAT_ICONS[cat]||'')+' '+tr(cat)+' ('+list.length+')':'🦷 '+tr('كل علاجات المريض')+' ('+list.length+')';
+  $('treatCatList').innerHTML=list.length?'<table><tr><th>'+tr('السن')+'</th><th>'+tr('نوع العلاج')+'</th><th>'+tr('التفاصيل')+'</th><th>'+tr('التكلفة')+'</th><th>'+tr('التاريخ')+'</th></tr>'+list.map(t=>`<tr><td><b>${esc(t.tooth||'—')}</b></td><td>${TREAT_ICONS[t.type]||''} ${esc(tr(t.type))}</td><td>${esc(t.notes)}</td><td class="money">${money(t.cost)}</td><td>${t.date}</td></tr>`).join('')+'</table>':'<div class="empty">'+tr('لا توجد إجراءات بعد')+'</div>';
+  if(cat)$('treatCatCard').scrollIntoView({behavior:'smooth'})}
 
 /* ---------- Global: X-ray archive ---------- */
 async function renderXraysView(){if(isLocked()){$('xrayArchive').innerHTML=lockedHtml();return}
@@ -2080,22 +2100,6 @@ async function aiXray(id){if(isLocked())return toast(tr('للطبيب فقط'));
 async function saveAi(){settings.aiKey=$('setAiKey').value.trim();settings.aiModel=$('setAiModel').value;await put('settings',{...settings,id:'main'});toast(tr('تم الحفظ'));$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):''}
 async function testAi(){$('aiState').textContent='⏳';try{const t=await aiCall([{type:'text',text:'اكتب كلمة: جاهز'}],20);$('aiState').textContent='✅ '+tr('الاتصال يعمل')+' — '+t.slice(0,30)}catch(e){$('aiState').textContent='❌ '+e.message}}
 
-/* ---------- Feedback / contact ---------- */
-let fbRating=0;
-document.querySelectorAll('#fbStars span').forEach(sp=>sp.onclick=()=>{fbRating=Number(sp.dataset.v);document.querySelectorAll('#fbStars span').forEach(x=>x.classList.toggle('on',Number(x.dataset.v)<=fbRating))});
-const FB_TYPES={suggestion:'اقتراح لتحسين الخدمة',complaint:'شكوى',praise:'شكر وتقدير',question:'استفسار',appointment:'طلب موعد'};
-async function sendFeedback(how){const msg=$('fbMsg').value.trim();if(!msg)return toast(tr('اكتب رسالتك أولًا'));
-  const fb={id:uid(),date:new Date().toISOString().slice(0,16).replace('T',' '),name:$('fbName').value.trim(),contact:$('fbContact').value.trim(),type:$('fbType').value,rating:fbRating,msg};
-  await put('feedback',fb);
-  const text=`${tr(FB_TYPES[fb.type])}${fb.rating?' — '+'★'.repeat(fb.rating):''}\n${fb.name?tr('الاسم')+': '+fb.name+'\n':''}${fb.contact?tr('الهاتف')+': '+fb.contact+'\n':''}\n${fb.msg}`;
-  if(how==='wa'){const ph=waPhone(settings.phone);if(!ph)toast(tr('لم يُضبط رقم هاتف العيادة في الإعدادات'));else window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(text),'_blank')}
-  if(how==='mail'){if(!settings.email)toast(tr('لم يُضبط بريد العيادة في الإعدادات'));else window.open('mailto:'+settings.email+'?subject='+encodeURIComponent(tr(settings.name)+' — '+tr(FB_TYPES[fb.type]))+'&body='+encodeURIComponent(text))}
-  $('fbMsg').value='';$('fbName').value='';$('fbContact').value='';fbRating=0;document.querySelectorAll('#fbStars span').forEach(x=>x.classList.remove('on'));
-  $('fbThanks').style.display='';setTimeout(()=>$('fbThanks').style.display='none',4000);toast(tr('تم الإرسال'))}
-async function renderFeedback(){const l=(await getAll('feedback')).sort((a,b)=>b.date.localeCompare(a.date));
-  $('fbList').innerHTML=l.length?l.map(f=>`<div class="fb-item"><div class="row between"><b>${tr(FB_TYPES[f.type]||f.type)} ${f.rating?'<span style="color:#f59e0b">'+'★'.repeat(f.rating)+'</span>':''}</b><span class="m">${f.date}</span></div><div>${esc(f.msg)}</div><div class="m">${esc(f.name||'')} ${esc(f.contact||'')} <a href="#" style="color:var(--danger)" onclick="delFb('${f.id}');return false">${tr('حذف')}</a></div></div>`).join(''):'<div class="empty" style="padding:10px">لا توجد رسائل بعد</div>'}
-async function delFb(id){await del('feedback',id);renderFeedback()}
-
 /* ---------- Settings & backup ---------- */
 async function loadSettings(){const s=await get('settings','main');if(s)settings={...settings,...s};
   if(settings.users&&settings.users.length&&!settings.users.some(u=>(u.perms||defaultPerms(u.role)).manageUsers&&u.active!==false)){
@@ -2110,11 +2114,11 @@ const DEFS={
  due:{ar:'مرحبًا {name} 👋\nنذكّرك بموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\n💳 المبلغ المتبقي عليك: {due}\nيرجى تجهيزه قبل الموعد. شكرًا 🙏',he:'שלום {name} 👋\nתזכורת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\n💳 היתרה לתשלום: {due}\nאנא הכן/י אותה לפני התור. תודה 🙏',en:'Hello {name} 👋\nReminder of your appointment at {clinic}{doctor} on {date} at {time}.\n💳 Your remaining balance: {due}\nPlease have it ready before the appointment. Thank you 🙏'},
  noshow:{ar:'مرحبًا {name} 👋\nلاحظنا أنك لم تحضر لموعدك في {clinic}{doctor} يوم {date} الساعة {time}.\nيرجى التواصل معنا لتحديد موعد جديد في أقرب وقت يناسبك. شكرًا 🙏',he:'שלום {name} 👋\nשמנו לב שלא הגעת לתור שלך ב{clinic}{doctor} ביום {date} בשעה {time}.\nאנא צור/י קשר לקביעת תור חדש בהקדם. תודה 🙏',en:'Hello {name} 👋\nWe noticed you missed your appointment at {clinic}{doctor} on {date} at {time}.\nPlease contact us to reschedule at your earliest convenience. Thank you 🙏'}};
 const DEF=k=>DEFS[k][lang]||DEFS[k].ar;const isDef=(k,v)=>Object.values(DEFS[k]).includes(v);
-function loadSettingsForm(){renderFeedback();refreshPinState();renderUsers();startUsersLiveRefresh();refreshBackupState();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setEmail').value=settings.email||'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
+function loadSettingsForm(){refreshPinState();renderUsers();startUsersLiveRefresh();refreshBackupState();$('setLockMin').value=settings.lockMin||15;$('setAiKey').value=settings.aiKey||'';$('setAiModel').value=settings.aiModel||'claude-sonnet-5';$('aiState').textContent=settings.aiKey?'🔑 '+tr('المفتاح محفوظ'):'';$('setName').value=settings.name;$('setDoctor').value=settings.doctor;$('setPhone').value=settings.phone;$('setCurrency').value=settings.currency;
   $('setRemindMin').value=settings.remindMin||30;$('setCountry').value=settings.country||'972';$('setMsgRemind').value=settings.msgRemind||DEF('remind');$('setMsgTurn').value=settings.msgTurn||DEF('turn');$('setMsgNoshow').value=settings.msgNoshow||DEF('noshow');
   $('setDueDays').value=settings.dueDays||1;$('setMsgDue').value=settings.msgDue||DEF('due');$('setApColorMode').value=settings.apColorMode||'status';
   $('mySchedCard').style.display=(curUser&&curUser.role==='doctor')?'':'none'}
-async function saveSettings(){settings={id:'main',users:settings.users||[],recoveryHash:settings.recoveryHash||'',recEmail:settings.recEmail||'',recPhone:settings.recPhone||'',pinHash:settings.pinHash||'',lockMin:settings.lockMin||15,aiKey:settings.aiKey||'',aiModel:settings.aiModel||'claude-sonnet-5',email:$('setEmail').value.trim(),name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
+async function saveSettings(){settings={id:'main',users:settings.users||[],recoveryHash:settings.recoveryHash||'',recEmail:settings.recEmail||'',recPhone:settings.recPhone||'',pinHash:settings.pinHash||'',lockMin:settings.lockMin||15,aiKey:settings.aiKey||'',aiModel:settings.aiModel||'claude-sonnet-5',email:settings.email||'',name:$('setName').value.trim()||'عيادة الأسنان',doctor:$('setDoctor').value.trim(),phone:$('setPhone').value.trim(),currency:$('setCurrency').value.trim()||'₪',
   remindMin:Number($('setRemindMin').value)||30,country:$('setCountry').value.trim()||'972',msgRemind:isDef('remind',$('setMsgRemind').value.trim())?'':$('setMsgRemind').value.trim(),msgTurn:isDef('turn',$('setMsgTurn').value.trim())?'':$('setMsgTurn').value.trim(),msgNoshow:isDef('noshow',$('setMsgNoshow').value.trim())?'':$('setMsgNoshow').value.trim(),
   dueDays:Number($('setDueDays').value)||1,msgDue:isDef('due',$('setMsgDue').value.trim())?'':$('setMsgDue').value.trim(),apColorMode:$('setApColorMode').value||'status',apTypeColors:settings.apTypeColors||{},apPatientColors:settings.apPatientColors||{}};await put('settings',settings);await loadSettings();updateNotifStatus();toast(tr('تم الحفظ'))}
 async function exportData(){const out={};for(const s of STORES)out[s]=await getAll(s);const b=new Blob([JSON.stringify(out)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dental-backup-'+today()+'.json';a.click();toast(tr('تم التصدير'))}
