@@ -92,13 +92,16 @@ tr:hover td{background:var(--subtle-bg)}
 .xray img{width:100%;height:130px;object-fit:cover;display:block}
 .xray .meta{background:var(--card);padding:6px 8px;font-size:.8rem;color:var(--muted)}
 .empty{text-align:center;color:var(--muted);padding:30px}
+.dropzone{position:relative;transition:background var(--transition),outline var(--transition);outline:2px dashed transparent;outline-offset:-4px;border-radius:var(--radius-sm)}
+.dropzone.drag{background:rgba(13,140,130,.08);outline:2px dashed var(--primary,#0d8c82)}
 .modal{position:fixed;inset:0;background:rgba(6,10,20,.55);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
 .modal.open{display:flex;animation:fadein .15s}
 .modal .box{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:20px;width:100%;max-width:560px;max-height:92vh;overflow:auto;position:relative;box-shadow:var(--shadow-lg)}
 .modal .actions{position:sticky;bottom:-20px;background:var(--card);padding:12px 0 4px;margin-top:6px;border-top:1px solid var(--border)}
 .modal .box h2{position:sticky;top:-20px;background:var(--card);padding:6px 0;z-index:1}
-.modal .box.img{background:#000;padding:0;max-width:900px}
-.modal .box.img img{width:100%;display:block}
+.modal .box.img{background:#000;padding:0;max-width:96vw;width:auto;max-height:94vh;display:flex;align-items:center;justify-content:center}
+.modal .box.img img{max-width:96vw;max-height:94vh;width:auto!important;height:auto;object-fit:contain}
+.modal .box.img .imgClose{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:999px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;z-index:2}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 18px;border-radius:var(--radius-sm);opacity:0;transition:.3s;z-index:60;box-shadow:var(--shadow-lg)}
 .toast.show{opacity:1}
 .tooth-grid{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin:8px 0}
@@ -551,26 +554,28 @@ main{width:100%}
     </div>
 
     <div id="tab-xray" class="tab">
-      <div class="row" style="margin-bottom:14px">
-        <select id="xrayKind" style="max-width:200px">
-          <option value="xray">X-ray (بيريابيكال/عادي)</option><option value="bitewing">Bitewing</option><option value="panorama">Panorama</option><option value="ceph">Cephalometric</option><option value="cbct">CBCT</option><option value="ct">CT</option><option value="photo">صورة فوتوغرافية</option><option value="intraoral">صورة فحص داخل الفم</option><option value="other">أخرى</option>
-        </select>
-        <input type="file" id="xrayFile" accept="image/*,.pdf,application/pdf,.dcm,application/dicom" multiple style="max-width:300px">
-        <input id="xrayNote" placeholder="وصف الصورة (اختياري)" style="max-width:260px">
-        <button class="btn" onclick="addXray()">رفع الصور</button>
+      <div id="xrayDrop" class="dropzone" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="dropUpload(event,'xray')">
+        <div class="row" style="margin-bottom:14px;flex-wrap:wrap">
+          <select id="xrayKind" style="max-width:200px">
+            <option value="xray">X-ray (بيريابيكال/عادي)</option><option value="bitewing">Bitewing</option><option value="panorama">Panorama</option><option value="ceph">Cephalometric</option><option value="cbct">CBCT</option><option value="ct">CT</option><option value="photo">صورة فوتوغرافية</option><option value="intraoral">صورة فحص داخل الفم</option><option value="other">أخرى</option>
+          </select>
+          <input type="file" id="xrayFile" accept="image/*,.pdf,application/pdf,.dcm,application/dicom" multiple style="max-width:300px" onchange="addXray()">
+          <input id="xrayNote" placeholder="وصف الصورة (اختياري)" style="max-width:260px">
+          <button class="btn" onclick="addXray()">رفع الصور</button>
+        </div>
+        <p style="color:var(--muted);font-size:.8rem;margin:-8px 0 14px">⚡ اسحب الصورة/الملف مباشرة هنا من مجلد جهاز التصوير أو الصقها (Ctrl+V) — بترفع فورًا بدون أي خطوة إضافية. يقبل أي صيغة تصدّرها برامج التصوير الشائعة: صور (JPG/PNG/BMP/TIFF)، تقارير PDF، وملفات DICOM (.dcm) (حجم أقصى 700KB للملفات غير القابلة للضغط).</p>
       </div>
-      <p style="color:var(--muted);font-size:.8rem;margin:-8px 0 14px">يقبل أي صيغة تصدّرها برامج التصوير الشائعة: صور (JPG/PNG/BMP/TIFF)، تقارير PDF، وملفات DICOM (.dcm) — الأخيرة تُحفظ وتُنظَّم مع ملف المريض وتُفتح ببرنامج DICOM بعد تحميلها (حجم أقصى 700KB للملفات غير القابلة للضغط).</p>
       <div class="xrays" id="xrayList"></div>
     </div>
 
     <div id="tab-files" class="tab">
-      <div class="card subtle" style="margin-bottom:14px">
+      <div id="docDrop" class="dropzone card subtle" style="margin-bottom:14px" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="dropUpload(event,'doc')">
         <h3>رفع ملف عام</h3>
         <div class="grid grid-2">
-          <div class="field"><label>الملف</label><input type="file" id="docFile" multiple></div>
+          <div class="field"><label>الملف</label><input type="file" id="docFile" multiple onchange="addDoc()"></div>
           <div class="field"><label>وصف/اسم الملف (اختياري)</label><input id="docLabel" placeholder="مثال: عقد علاج، تقرير تأمين، هوية..."></div>
         </div>
-        <p style="color:var(--muted);font-size:.8rem;margin:-6px 0 10px">يقبل أي نوع ملف (Word، Excel، PDF، صور، ضغط...) — الصور تُضغط تلقائيًا، وباقي الملفات بحد أقصى 700 كيلوبايت للملف الواحد</p>
+        <p style="color:var(--muted);font-size:.8rem;margin:-6px 0 10px">⚡ اسحب الملف مباشرة هنا أو الصقه (Ctrl+V) — بيرفع فورًا. يقبل أي نوع ملف (Word، Excel، PDF، صور، ضغط...) — الصور تُضغط تلقائيًا، وباقي الملفات بحد أقصى 700 كيلوبايت للملف الواحد</p>
         <button class="btn" onclick="addDoc()">رفع الملف</button>
       </div>
       <div class="row between" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -810,7 +815,7 @@ main{width:100%}
     </div>
   </div>
 </div>
-<div class="modal" id="imgModal" onclick="closeModal('imgModal')"><div class="box img"><img id="imgBig"></div></div>
+<div class="modal" id="imgModal" onclick="closeModal('imgModal')"><div class="box img"><button class="imgClose" onclick="event.stopPropagation();closeModal('imgModal')">✕</button><img id="imgBig" onclick="event.stopPropagation()"></div></div>
 <div class="modal" id="chartModal">
   <div class="box" style="max-width:900px">
     <div class="row between" style="align-items:center;flex-wrap:wrap;gap:8px">
@@ -1084,8 +1089,12 @@ async function printXrayItem(id){const x=await get('xrays',id);if(!x)return;
   if(x.mime&&!x.mime.startsWith('image/'))return toast(tr('لا يمكن طباعة هذا النوع من الملفات مباشرة — اضغط "تحميل" وافتحه ببرنامجه ثم اطبعه'));
   printXrayData([x])}
 async function addExamPhoto(){const files=[...$('examPhotoFile').files];if(!files.length)return toast(tr('اختر صورة أولًا'));
-  for(const f of files){const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'intraoral',note:$('examPhotoNote').value.trim(),data})}
-  $('examPhotoFile').value='';$('examPhotoNote').value='';toast(tr('تم رفع')+' '+files.length+' '+tr('صورة'));renderExamPhotos();renderXrays();renderFilesTab()}
+  let added=0,failed=0;
+  for(const f of files){try{const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'intraoral',note:$('examPhotoNote').value.trim(),data});added++}catch(e){failed++}}
+  $('examPhotoFile').value='';$('examPhotoNote').value='';
+  if(added)toast(tr('تم رفع')+' '+added+' '+tr('صورة'));
+  if(failed)toast(tr('تعذّر رفع')+' '+failed+' '+tr('ملف — الملف تالف أو غير مدعوم'));
+  renderExamPhotos();renderXrays();renderFilesTab()}
 async function renderExamPhotos(){if(!$('examPhotoList'))return;const l=(await byPatient('xrays',currentId)).filter(x=>x.kind==='intraoral').sort((a,b)=>b.id.localeCompare(a.id));
   $('examPhotoList').innerHTML=l.length?l.map(x=>`<div class="xray">${xrayThumb(x)}<div class="meta">${x.date} ${esc(x.note)} <a href="#" style="color:var(--danger);float:left" onclick="delItem('xrays','${x.id}');return false">${tr('حذف')}</a><div class="row" style="gap:4px;margin-top:4px"><button class="btn small" style="flex:1" onclick="downloadXrayItem('${x.id}')">${tr('تحميل')}</button><button class="btn small" style="flex:1" onclick="printXrayItem('${x.id}')">${tr('طباعة')}</button></div></div></div>`).join(''):'<div class="empty">لا توجد صور فحص بعد</div>'}
 async function renderFilesTab(){if(!$('filesList'))return;const l=(await byPatient('xrays',currentId)).sort((a,b)=>b.id.localeCompare(a.id));
@@ -1288,8 +1297,11 @@ function toothPhotoClick(n){pendingToothPhotoN=n;
   byPatient('xrays',currentId).then(xr=>{const list=xr.filter(x=>x.kind==='tooth_photo'&&String(x.tooth)===String(n)).sort((a,b)=>b.id.localeCompare(a.id));
     if(list.length){$('imgBig').src=list[0].data;$('imgModal').classList.add('open')}else{$('toothPhotoInput').click()}})}
 async function uploadToothPhoto(input){const files=[...input.files];if(!files.length)return;const n=pendingToothPhotoN;
-  for(const f of files){const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'tooth_photo',tooth:n,note:tr('صورة السن')+' '+n,data})}
-  input.value='';toast(tr('تم رفع صورة السن'));renderTreatChart();renderXrays();renderFilesTab()}
+  let added=0;
+  for(const f of files){try{const data=await readImg(f);await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'tooth_photo',tooth:n,note:tr('صورة السن')+' '+n,data});added++}catch(e){}}
+  input.value='';
+  if(added)toast(tr('تم رفع صورة السن'));else toast(tr('تعذّر رفع')+' '+tr('ملف — الملف تالف أو غير مدعوم'));
+  renderTreatChart();renderXrays();renderFilesTab()}
 let pendingToothPhotoN=null;
 function pickTreatTooth(n){if(!$('trTooth'))return;const cur=$('trTooth').value.split(',').map(s=>s.trim()).filter(Boolean);const i=cur.indexOf(String(n));
   if(i>-1)cur.splice(i,1);else cur.push(String(n));$('trTooth').value=cur.join(', ');renderTreatChart();goTreatTab()}
@@ -1312,39 +1324,50 @@ async function renderTreatments(){const l=(await byPatient('treatments',currentI
 async function delItem(s,id){if(!confirm(tr('تأكيد الحذف؟')))return;await del(s,id);toast(tr('تم الحذف'));renderTreatments();renderXrays();renderPayments();renderExamPhotos();renderFilesTab()}
 
 /* X-rays */
-function readImg(file){return new Promise(res=>{const img=new Image(),r=new FileReader();r.onload=()=>{img.onload=()=>{const max=1600,sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+function readImg(file){return new Promise((res,rej)=>{const img=new Image(),r=new FileReader();
+  r.onload=()=>{img.onerror=()=>rej(new Error('invalid-image'));img.onload=()=>{const max=1600,sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;c.getContext('2d').drawImage(img,0,0,c.width,c.height);
   const LIMIT=850000; // stay safely under Firestore's ~1MB per-document cap
   let q=.85,out=c.toDataURL('image/jpeg',q);
   while(out.length>LIMIT&&q>0.3){q-=0.1;out=c.toDataURL('image/jpeg',q)}
   if(out.length>LIMIT){const c2=document.createElement('canvas');c2.width=c.width*.7;c2.height=c.height*.7;c2.getContext('2d').drawImage(c,0,0,c2.width,c2.height);out=c2.toDataURL('image/jpeg',.6)}
-  res(out)};img.src=r.result};r.readAsDataURL(file)})}
+  res(out)};img.src=r.result};r.onerror=()=>rej(r.error||new Error('file-read-error'));r.readAsDataURL(file)})}
 /* Reads a non-image file (PDF / DICOM / other) as-is, with no compression — used for files that came straight out of imaging software. */
 function readFileRaw(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 function isImageFile(f){return (f.type||'').startsWith('image/')&&!/\.dcm$/i.test(f.name||'')}
 function isDicomFile(f){return /\.dcm$/i.test(f.name||'')||f.type==='application/dicom'}
 function extFromMime(mime,fileName){if(fileName&&/\.[a-z0-9]{2,5}$/i.test(fileName))return fileName.split('.').pop().toLowerCase();
   const map={'application/pdf':'pdf','application/dicom':'dcm','image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/bmp':'bmp','image/tiff':'tiff','image/gif':'gif'};return map[mime]||'jpg'}
-async function addXray(){const files=[...$('xrayFile').files];if(!files.length)return toast(tr('اختر صورة أولًا'));
-  const RAW_LIMIT=700000;let added=0,skipped=0;
-  for(const f of files){let data,mime=f.type||'',fileName=f.name||'';
+function dropUpload(e,kind){e.preventDefault();e.currentTarget.classList.remove('drag');
+  const files=e.dataTransfer&&e.dataTransfer.files;if(!files||!files.length)return;
+  if(kind==='xray')addXray(files);else addDoc(files)}
+document.addEventListener('paste',e=>{
+  if(!currentId)return;const activeTabEl=document.querySelector('#view-patient .tab.active');if(!activeTabEl)return;
+  const isXray=activeTabEl.id==='tab-xray',isDoc=activeTabEl.id==='tab-files';if(!isXray&&!isDoc)return;
+  const items=(e.clipboardData&&e.clipboardData.files)||[];if(!items.length)return;
+  e.preventDefault();if(isXray)addXray(items);else addDoc(items)});
+async function addXray(filesOverride){const files=filesOverride?[...filesOverride]:[...$('xrayFile').files];if(!files.length)return toast(tr('اختر صورة أولًا'));
+  const RAW_LIMIT=700000;let added=0,skipped=0,failed=0;
+  for(const f of files){try{let data,mime=f.type||'',fileName=f.name||'';
     if(isImageFile(f)){data=await readImg(f)}
     else{if(f.size>RAW_LIMIT){skipped++;continue}
       data=await readFileRaw(f);if(isDicomFile(f)&&!mime)mime='application/dicom'}
-    await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:$('xrayKind').value,note:$('xrayNote').value.trim(),data,mime,fileName});added++}
+    await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:$('xrayKind').value,note:$('xrayNote').value.trim(),data,mime,fileName});added++}catch(e){failed++}}
   $('xrayFile').value='';$('xrayNote').value='';
-  if(added)toast(tr('تم رفع')+' '+added+' '+tr('ملف'));
+  if(added)toast('⚡ '+tr('تم رفع')+' '+added+' '+tr('ملف'));
   if(skipped)toast(tr('تنبيه: تم تجاهل')+' '+skipped+' '+tr('ملف لأنه أكبر من 700 كيلوبايت — صدّره كصورة JPG من برنامج التصوير أو قلّل حجمه'));
+  if(failed)toast(tr('تعذّر رفع')+' '+failed+' '+tr('ملف — الملف تالف أو غير مدعوم'));
   renderXrays();renderExamPhotos();renderFilesTab()}
-async function addDoc(){const files=[...$('docFile').files];if(!files.length)return toast(tr('اختر ملفًا أولًا'));
-  const RAW_LIMIT=700000;let added=0,skipped=0;const label=$('docLabel').value.trim();
-  for(const f of files){let data,mime=f.type||'',fileName=f.name||'';
+async function addDoc(filesOverride){const files=filesOverride?[...filesOverride]:[...$('docFile').files];if(!files.length)return toast(tr('اختر ملفًا أولًا'));
+  const RAW_LIMIT=700000;let added=0,skipped=0,failed=0;const label=($('docLabel')&&$('docLabel').value.trim())||'';
+  for(const f of files){try{let data,mime=f.type||'',fileName=f.name||'';
     if(isImageFile(f)){data=await readImg(f)}
     else{if(f.size>RAW_LIMIT){skipped++;continue}
       data=await readFileRaw(f);if(isDicomFile(f)&&!mime)mime='application/dicom'}
-    await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'document',note:label||fileName,data,mime,fileName});added++}
-  $('docFile').value='';$('docLabel').value='';
-  if(added)toast(tr('تم رفع')+' '+added+' '+tr('ملف'));
+    await put('xrays',{id:uid(),patientId:currentId,date:today(),kind:'document',note:label||fileName,data,mime,fileName});added++}catch(e){failed++}}
+  if($('docFile'))$('docFile').value='';if($('docLabel'))$('docLabel').value='';
+  if(added)toast('⚡ '+tr('تم رفع')+' '+added+' '+tr('ملف'));
   if(skipped)toast(tr('تنبيه: تم تجاهل')+' '+skipped+' '+tr('ملف لأنه أكبر من 700 كيلوبايت — قلّل حجمه وأعد المحاولة'));
+  if(failed)toast(tr('تعذّر رفع')+' '+failed+' '+tr('ملف — الملف تالف أو غير مدعوم'));
   renderXrays();renderFilesTab()}
 function xrayThumb(x){const mime=x.mime||'';
   if(mime.startsWith('image/')||!mime)return `<img src="${x.data}" onclick="$('imgBig').src=this.src;$('imgModal').classList.add('open')">`;
