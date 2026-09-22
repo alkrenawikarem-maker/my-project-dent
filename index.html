@@ -130,9 +130,14 @@ tr:hover td{background:var(--subtle-bg)}
 .tooth-info-grid .stat{background:var(--subtle-bg);border-radius:var(--radius-sm);padding:10px;text-align:center}
 .tooth-info-grid .stat .v{font-size:1.3rem;font-weight:800;color:var(--primary)}
 .tooth-info-grid .stat .l{font-size:.75rem;color:var(--muted)}
-.treatcats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.treatcats button{border:1px solid var(--border);background:var(--subtle-bg);color:var(--text);border-radius:var(--radius-sm);padding:6px 10px;font-size:.78rem;cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:4px}
+.treatcats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.treatcats button{border:1.5px solid var(--border);background:var(--subtle-bg);color:var(--text);border-radius:var(--radius-sm);padding:10px 16px;font-size:1rem;font-weight:600;cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:8px}
 .treatcats button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.treatcats button svg{width:24px;height:24px;flex:none;vertical-align:middle!important}
+/* Category-tile icons (أقسام العلاج) — enlarged so the dental artwork (filling/root-canal/implant/braces)
+   actually reads clearly instead of shrinking to an illegible dot inside the 46px tile box. */
+.tile .ico svg{width:30px;height:30px;flex:none;vertical-align:middle!important}
+.tiles.small .tile .ico svg{width:26px;height:26px}
 #dentitionSwitch button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .tooth.done{background:#dcfce7}
 .search{max-width:360px}
@@ -182,6 +187,16 @@ tr:hover td{background:var(--subtle-bg)}
 .pbar .in{background:var(--card);border:2px solid var(--accent);border-radius:var(--radius);padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:var(--shadow-sm)}
 .pbar select{max-width:320px;flex:1;min-width:180px}
 .pbar .lbl{font-weight:700;color:var(--heading);white-space:nowrap}
+.ac-wrap{position:relative;flex:1;min-width:180px}
+.ac-wrap.id-wrap{flex:none;width:170px;min-width:150px}
+.ac-wrap input{width:100%}
+.ac-list{position:absolute;top:calc(100% + 4px);inset-inline-start:0;inset-inline-end:0;background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius-sm);max-height:240px;overflow:auto;z-index:80;display:none;box-shadow:var(--shadow-md)}
+.ac-list.show{display:block}
+.ac-item{padding:8px 12px;cursor:pointer;font-size:.9rem;border-bottom:1px solid var(--border)}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.hl{background:var(--subtle-bg)}
+.ac-item .m{color:var(--muted);font-size:.78rem}
+.ac-empty{padding:10px 12px;color:var(--muted);font-size:.85rem}
 .pbar.active .in{background:#ecfeff;border-color:var(--primary)}
 .pbar .who{font-weight:700;color:var(--heading)}
 .folder{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
@@ -337,11 +352,22 @@ main{width:100%}
 <div class="pbar" id="pbar">
   <div class="in">
     <span class="lbl">👤 المريض الحالي:</span>
-    <select id="pickPatient" onchange="setActivePatient(this.value)"><option value="">— كل المرضى (بدون تصفية) —</option></select>
-    <input id="pickIdNum" inputmode="numeric" placeholder="🔍 بحث سريع برقم الهوية" style="max-width:190px" onkeydown="if(event.key==='Enter'){event.preventDefault();findPatientByIdNum(this.value)}">
-    <button class="btn small secondary" onclick="findPatientByIdNum($('pickIdNum').value)">بحث</button>
+    <div class="ac-wrap">
+      <input id="pickPatientSearch" placeholder="اكتب اسم المريض..." autocomplete="off"
+        oninput="filterPickerByName(this.value)" onfocus="filterPickerByName(this.value)"
+        onkeydown="acKeyNav(event,'pickPatientList')" onblur="setTimeout(()=>hideAcList('pickPatientList'),150)">
+      <div id="pickPatientList" class="ac-list"></div>
+    </div>
+    <div class="ac-wrap id-wrap">
+      <input id="pickIdNum" inputmode="numeric" placeholder="🔍 رقم الهوية" autocomplete="off"
+        oninput="filterPickerById(this.value)" onfocus="filterPickerById(this.value)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();findPatientByIdNum(this.value)}else acKeyNav(event,'pickIdList')"
+        onblur="setTimeout(()=>hideAcList('pickIdList'),150)">
+      <div id="pickIdList" class="ac-list"></div>
+    </div>
     <button class="btn small" id="pbOpen" onclick="if(activePatient)openPatient(activePatient)" style="display:none">فتح الملف</button>
     <button class="btn secondary small" id="pbClear" onclick="setActivePatient('')" style="display:none">✕ إلغاء التحديد</button>
+    <button class="btn small secondary" onclick="openPatientForm()">+ إضافة مريض</button>
     <span id="pbHint" style="color:var(--muted);font-size:.85rem">اختر مريضًا لعرض بياناته فقط في كل الأقسام</span>
   </div>
 </div>
@@ -948,10 +974,27 @@ const AP=()=>activePatient||'';
 const byActive=(list)=>AP()?list.filter(x=>(x.patientId||x.id)===AP()):list;
 /* Doctor accounts only ever see their own assigned patients. Managers/reception/legacy no-account mode see everyone. */
 function visiblePatients(list){if(curUser&&curUser.role==='doctor')return list.filter(p=>p.doctorId===curUser.u);return list}
-async function refreshPicker(){const ps=visiblePatients(await getAll('patients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));const sel=$('pickPatient');
-  sel.innerHTML='<option value="">— كل المرضى (بدون تصفية) —</option>'+ps.map(p=>`<option value="${p.id}">${esc(p.name)}${p.fileNo?' ('+esc(p.fileNo)+')':''}</option>`).join('');sel.value=AP();
-  if(AP()&&!ps.find(p=>p.id===AP())){activePatient='';sel.value=''}
+let pickerCache=[];
+async function refreshPicker(){pickerCache=visiblePatients(await getAll('patients')).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  const cur=pickerCache.find(p=>p.id===AP());
+  if(AP()&&!cur){activePatient='';try{localStorage.setItem('activePatient','')}catch(e){}}
+  if(document.activeElement!==$('pickPatientSearch'))$('pickPatientSearch').value=cur?cur.name:'';
   $('pbar').classList.toggle('active',!!AP());$('pbOpen').style.display=AP()?'':'none';$('pbClear').style.display=AP()?'':'none';$('pbHint').style.display=AP()?'none':''}
+/* Live "type-ahead" suggestions for the top patient picker — by name (prefix match) or by ID number
+   (prefix match on the digits), so results appear the moment the first letters/digits are typed. */
+function renderAcList(listId,items,emptyMsg){const el=$(listId);if(!el)return;
+  if(!items.length){el.innerHTML=`<div class="ac-empty">${esc(emptyMsg)}</div>`;el.classList.add('show');return}
+  el.innerHTML=items.slice(0,30).map(p=>`<div class="ac-item" onmousedown="event.preventDefault();selectPickerPatient('${p.id}')">${esc(p.name)}${p.idNum?`<span class="m"> — ${esc(p.idNum)}</span>`:''}</div>`).join('');
+  el.classList.add('show')}
+function hideAcList(listId){const el=$(listId);if(el)el.classList.remove('show')}
+function selectPickerPatient(id){const p=pickerCache.find(x=>x.id===id);$('pickPatientSearch').value=p?p.name:'';$('pickPatientSearch').blur();$('pickIdNum').value='';hideAcList('pickPatientList');hideAcList('pickIdList');setActivePatient(id)}
+function filterPickerByName(q){q=(q||'').trim();if(!q){hideAcList('pickPatientList');return}
+  const ql=q.toLowerCase();const items=pickerCache.filter(p=>(p.name||'').toLowerCase().startsWith(ql));
+  renderAcList('pickPatientList',items,tr('لا يوجد مريض بهذا الاسم'))}
+function filterPickerById(q){q=(q||'').trim();if(!q){hideAcList('pickIdList');return}
+  const items=pickerCache.filter(p=>(p.idNum||'').startsWith(q));
+  renderAcList('pickIdList',items,tr('لا يوجد مريض بهذا الرقم'))}
+function acKeyNav(ev,listId){if(ev.key==='Escape'){hideAcList(listId);ev.target.blur()}}
 async function setActivePatient(id,silent){activePatient=id||'';try{localStorage.setItem('activePatient',activePatient)}catch(e){}await refreshPicker();
   if(!silent){const v=document.querySelector('.view.active');const cur=v?v.id.replace('view-',''):'dashboard';if(cur==='patient'){if(activePatient)openPatient(activePatient);else showView('patients')}else showView(cur)}
   renderDashboardChart()}
@@ -1427,7 +1470,7 @@ async function renderTreatChart(){if(!$('treatToothChart'))return;
     const anchor=(isFilling||isBraces)?'crown':'center';
     const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize,anchor);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5);z-index:1">✓</span>':'';
-    return `<div class="tooth-mini${curList.includes(String(n))?' picked':''}" onclick="pickTreatTooth(${n})" title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}<span class="cam${ph?' has':''}" onclick="event.stopPropagation();toothPhotoClick(${n})" title="${tr('صورة السن')}">📷</span><span class="info" onclick="event.stopPropagation();showToothInfo(${n})" title="${tr('معلومات تشريحية دقيقة')}">ℹ️</span>${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
+    return `<div class="tooth-mini${curList.includes(String(n))?' picked':''}" onclick="pickTreatTooth(${n})" title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
   $('treatToothChart').innerHTML=`<div class="arch">${upper.map(n=>mk(n,true)).join('')}</div><div class="divider"></div><div class="arch">${lower.map(n=>mk(n,false)).join('')}</div>`;
   if($('treatSummary')){const byType={};trs.forEach(t=>{const k=t.type||tr('أخرى');(byType[k]=byType[k]||{count:0,cost:0});byType[k].count++;byType[k].cost+=Number(t.cost)||0});
@@ -1777,6 +1820,13 @@ const IMPLANT_TILE_SVG=`<svg viewBox="0 0 24 40" width="12" height="20" xmlns="h
   <path d="M9.6 17h4.8M9.4 20h5.2M9.2 23h5.6M9 26h6M8.9 29h6.2M9 31.7h5.7" stroke="#64748b" stroke-width=".9" stroke-linecap="round"/>
 </svg>`;
 const TREAT_ICONS={'فحص وتشخيص':'🔍','تنظيف وتلميع':'✨','حشو':'🦷','علاج عصب':RCT_TILE_SVG,'خلع':EXTRACTION_TILE_SVG,'تركيبات (تاج/جسر)':'👑','زراعة':IMPLANT_TILE_SVG,'تقويم':BRACES_TILE_SVG,'تبييض':'⚪','علاج لثة':'🌸','أطفال':'🧒','أخرى':'📋'};
+/* The "إضافة إجراء علاجي" quick-pick buttons are static HTML (rendered before this script's constants exist),
+   so swap their emoji for the same real dental icons used everywhere else (once, on load) instead of duplicating
+   the SVG markup by hand in the HTML. */
+function syncTreatCatsBarIcons(){const bar=$('treatCatsBar');if(!bar)return;
+  bar.querySelectorAll('button[onclick^="pickTreatType"]').forEach(b=>{
+    const m=b.getAttribute('onclick').match(/pickTreatType\('([^']+)'/);const cat=m&&m[1];const icon=cat&&TREAT_ICONS[cat];
+    if(icon&&icon.trim().startsWith('<svg')){const label=b.textContent.replace(/^\S+\s*/,'');b.innerHTML=icon+' '+esc(label)}})}
 async function renderTreatmentsView(cat){if(isLocked()){$('treatCats').innerHTML=lockedHtml();$('treatCatCard').style.display='none';$('treatGlobalChartCard').style.display='none';return}
   const pid=AP();
   if(!pid){$('treatCats').innerHTML='<div class="empty">'+tr('اختر مريضًا من أعلى الصفحة لعرض علاجاته وتكاليفه')+'</div>';$('treatCatCard').style.display='none';$('treatGlobalChartCard').style.display='none';return}
@@ -2283,7 +2333,7 @@ window.addEventListener('online',updateNetStatus);window.addEventListener('offli
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})}
 
 /* ---------- Init ---------- */
-(async()=>{try{await ensureCloudAuth();await migrateLegacyToCloud()}catch(e){dbFatal('تعذر الاتصال بقاعدة البيانات السحابية: '+(e&&e.message||e)+' — تأكد من الاتصال بالإنترنت (أول استخدام يحتاج إنترنت، وبعدها يعمل النظام حتى بدون اتصال) وأعد التحميل');return}await loadSettings();await refreshPicker();applyLang(lang);applyTheme(theme);startObserver();await authGate();applyLock();renderDashboard();updateNetStatus();startAutoBackupLoop();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+(async()=>{try{await ensureCloudAuth();await migrateLegacyToCloud()}catch(e){dbFatal('تعذر الاتصال بقاعدة البيانات السحابية: '+(e&&e.message||e)+' — تأكد من الاتصال بالإنترنت (أول استخدام يحتاج إنترنت، وبعدها يعمل النظام حتى بدون اتصال) وأعد التحميل');return}await loadSettings();await refreshPicker();syncTreatCatsBarIcons();applyLang(lang);applyTheme(theme);startObserver();await authGate();applyLock();renderDashboard();updateNetStatus();startAutoBackupLoop();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   setTimeout(async()=>{checkReminders();const rows=await renderDueReminders();if(rows&&rows.length&&!sessionStorage.getItem('dueAlerted')){sessionStorage.setItem('dueAlerted','1');showAlert(tr('💳 تذكير بالمستحقات'),new Set(rows.map(r=>r.p.id)).size+' '+tr('مريض لديهم موعد قريب وعليهم مبالغ متبقية — أرسل لهم تنبيهًا من صفحة المواعيد.'))}},1500)})();
 </script>
 </body>
