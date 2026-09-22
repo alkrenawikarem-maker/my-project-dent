@@ -1014,9 +1014,11 @@ async function buildToothChartMarkup(p,clickOpensFile){
   const trs=await byPatient('treatments',p.id);
   const latest={};trs.forEach(t=>{(t.tooth||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{if(!latest[n]||t.date>=latest[n].date)latest[n]=t})});
   const click=clickOpensFile?`onclick="closeModal('chartModal');openPatient('${p.id}')"`:'';
-  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const c=t&&!missing?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isImplant?(TREAT_ICONS[t.type]||'🦷'):'';
+  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const isFilling=t&&t.type==='حشو';const isRct=t&&t.type==='علاج عصب';const isOverlay=isImplant||isFilling||isRct;const c=t&&!missing&&!isOverlay?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isOverlay?(TREAT_ICONS[t.type]||'🦷'):'';
     const variant=t&&t.type==='تركيبات (تاج/جسر)'?'crown':null;
-    const svg=toothSvgImg(n,c,missing,variant,isImplant?IMPLANT_ICON_SVG:null);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
+    const centerIcon=isImplant?IMPLANT_ICON_SVG:isFilling?FILLING_ICON_SVG:isRct?rctIconSvg(n):null;
+    const centerIconSize=isFilling?46:58;
+    const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5)">✓</span>':'';
     return `<div class="tooth-mini" ${click} title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
@@ -1222,14 +1224,48 @@ const IMPLANT_ICON_SVG=`<svg viewBox="0 0 24 40" xmlns="http://www.w3.org/2000/s
   <path d="M9.4 14 L14.6 14 L13.3 34 Q12 37.2 10.7 34 Z" fill="#cbd5e1" stroke="#64748b" stroke-width=".8"/>
   <path d="M9.6 17h4.8M9.4 20h5.2M9.2 23h5.6M9 26h6M8.9 29h6.2M9 31.7h5.7" stroke="#64748b" stroke-width=".9" stroke-linecap="round"/>
 </svg>`;
+/* Filling patch (حشو) — an amalgam/composite-style patch shown centered ON the tooth's crown, so it clearly
+   reads as "this tooth has a filling" rather than an abstract blue status dot. */
+const FILLING_ICON_SVG=`<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+  <path d="M4.5 9.5 Q3.6 5 12 4 Q20.4 5 19.5 9.5 Q20.3 14.8 15.5 18.6 Q12 21 8.5 18.6 Q3.7 14.8 4.5 9.5 Z" fill="#9ca3af" stroke="#4b5563" stroke-width="1.2"/>
+  <path d="M7.3 8.8 Q6.8 5.6 12 4.7 Q17.2 5.6 16.7 8.8 Q17.3 12.6 13.7 15.8 Q12 17.2 10.3 15.8 Q6.7 12.6 7.3 8.8 Z" fill="#c7ccd1" opacity=".6"/>
+  <ellipse cx="9.7" cy="8.2" rx="1.7" ry="1.1" fill="#eef0f2" opacity=".7"/>
+</svg>`;
+/* Root canal treatment (علاج عصب) — a red pulp chamber + red canal lines running down the roots, generated
+   per-tooth from toothInfo() so the number of canals/roots always matches the real anatomy of that tooth
+   (1 canal for incisors/canines, 2-3 for premolars, 3-4 for molars, with an extra close pair when a molar's
+   mesial root commonly carries two canals). */
+function rctIconSvg(n){
+  const info=toothInfo(n);
+  const roots=info?Math.max(1,Math.min(3,info.roots||1)):1;
+  const canals=info?Math.max(roots,Math.min(4,info.canals||roots)):1;
+  const posSets={1:[12],2:[7,17],3:[5,12,19]};
+  const pos=posSets[roots]||posSets[1];
+  const left=pos[0]-4,right=pos[pos.length-1]+4;
+  const chamber=`<path d="M${left} 8 L${right} 8 L${right-2} 15 L${left+2} 15 Z" fill="#ef4444" stroke="#b91c1c" stroke-width=".7"/>`;
+  let extra=canals-roots,lines='';
+  pos.forEach((cx,i)=>{
+    if(extra>0&&i===0){
+      lines+=`<path d="M${cx-1.6} 15 Q${cx-2.4} 26 ${cx-0.8} 35" stroke="#dc2626" stroke-width="1.3" fill="none" stroke-linecap="round"/>`;
+      lines+=`<path d="M${cx+1.6} 15 Q${cx+2.4} 26 ${cx+0.8} 35" stroke="#dc2626" stroke-width="1.3" fill="none" stroke-linecap="round"/>`;
+      extra--
+    }else lines+=`<path d="M${cx} 15 Q${cx} 26 ${cx} 35" stroke="#dc2626" stroke-width="1.6" fill="none" stroke-linecap="round"/>`
+  });
+  return `<svg viewBox="0 0 24 40" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">${chamber}${lines}</svg>`}
 /* variant: null=natural tooth, 'implant'=titanium implant+crown (زراعة), 'crown'=gold crown cap (تركيبات تاج/جسر)
    centerIcon: optional emoji or inline <svg>...</svg> markup shown centered ON TOP of the tooth graphic (like a filling/marker),
-   instead of floating above the tooth number. */
-function toothSvgImg(n,statusColor,missing,variant,centerIcon){const spec=toothSvgSpec(n,variant);if(!spec)return '';
+   instead of floating above the tooth number. centerIconSize: % width/height of the overlay box (default 58). */
+function toothSvgImg(n,statusColor,missing,variant,centerIcon,centerIconSize){const spec=toothSvgSpec(n,variant);if(!spec)return '';
   const tf=`scale(${spec.flipX?-1:1},${spec.flipY?-1:1})`;
   const filt=missing?'grayscale(1) opacity(.4)':'';
   const dot=statusColor?`<span style="position:absolute;left:50%;bottom:${spec.flipY?'auto':'2px'};top:${spec.flipY?'2px':'auto'};transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:${statusColor};border:1.5px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.5)"></span>`:'';
-  const icon=centerIcon?`<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58%;height:58%;display:flex;align-items:center;justify-content:center;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${centerIcon.trim().startsWith('<svg')?centerIcon:`<span style="font-size:1.5rem;line-height:1">${centerIcon}</span>`}</div>`:'';
+  const sz=centerIconSize||58;
+  /* Overlay icons (implant/filling/RCT) are drawn in a fixed "crown near top, root tip near bottom" convention.
+     The tooth artwork ends up in that same orientation only when spec.flipY is true (lower arch); for teeth
+     rendered with spec.flipY false (upper arch, root pointing up / crown pointing down) the overlay must be
+     flipped vertically to match, otherwise a filling/RCT icon lands upside-down on upper teeth. */
+  const iconTf=spec.flipY?'':'scale(1,-1)';
+  const icon=centerIcon?`<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) ${iconTf};width:${sz}%;height:${sz}%;display:flex;align-items:center;justify-content:center;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${centerIcon.trim().startsWith('<svg')?centerIcon:`<span style="font-size:1.5rem;line-height:1">${centerIcon}</span>`}</div>`:'';
   return `<div style="position:relative;width:100%;height:100%"><img src="${spec.file}" loading="lazy" style="width:100%;height:100%;object-fit:contain;transform:${tf};filter:${filt}" onerror="this.style.opacity=0.15" alt="${n}">${icon}${dot}</div>`}
 function toothIllustrationSVG(info){
   const rootsN=info.roots,canalsN=info.canals;
@@ -1361,9 +1397,11 @@ async function renderTreatChart(){if(!$('treatToothChart'))return;
   trs.forEach(t=>{(t.tooth||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{if(!latest[n]||t.date>=latest[n].date)latest[n]=t})});
   const toothPhoto={};xr.filter(x=>x.kind==='tooth_photo'&&x.tooth).forEach(x=>{const n=String(x.tooth);if(!toothPhoto[n]||x.id>toothPhoto[n].id)toothPhoto[n]=x});
   const curList=$('trTooth')?$('trTooth').value.split(',').map(s=>s.trim()).filter(Boolean):[];
-  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const c=t&&!missing?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isImplant?(TREAT_ICONS[t.type]||'🦷'):'';const ph=toothPhoto[String(n)];
+  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const isFilling=t&&t.type==='حشو';const isRct=t&&t.type==='علاج عصب';const isOverlay=isImplant||isFilling||isRct;const c=t&&!missing&&!isOverlay?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isOverlay?(TREAT_ICONS[t.type]||'🦷'):'';const ph=toothPhoto[String(n)];
     const variant=t&&t.type==='تركيبات (تاج/جسر)'?'crown':null;
-    const svg=toothSvgImg(n,c,missing,variant,isImplant?IMPLANT_ICON_SVG:null);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
+    const centerIcon=isImplant?IMPLANT_ICON_SVG:isFilling?FILLING_ICON_SVG:isRct?rctIconSvg(n):null;
+    const centerIconSize=isFilling?46:58;
+    const svg=toothSvgImg(n,c,missing,variant,centerIcon,centerIconSize);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5);z-index:1">✓</span>':'';
     return `<div class="tooth-mini${curList.includes(String(n))?' picked':''}" onclick="pickTreatTooth(${n})" title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}<span class="cam${ph?' has':''}" onclick="event.stopPropagation();toothPhotoClick(${n})" title="${tr('صورة السن')}">📷</span><span class="info" onclick="event.stopPropagation();showToothInfo(${n})" title="${tr('معلومات تشريحية دقيقة')}">ℹ️</span>${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
