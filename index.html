@@ -160,7 +160,8 @@ tr:hover td{background:var(--subtle-bg)}
 .calday-head{text-align:center;padding:8px 4px;font-size:.78rem;font-weight:700;color:var(--heading);background:var(--subtle-bg);border-bottom:1px solid var(--card-border);line-height:1.4}
 .calday-head span{font-weight:400;color:var(--muted)}
 .calday-today .calday-head{background:var(--ai-bg);color:var(--primary-dark)}
-.calday-body{position:relative;background-image:repeating-linear-gradient(to bottom,var(--card-border) 0,var(--card-border) 1px,transparent 1px,transparent 56px)}
+.calday-body{position:relative;cursor:pointer;background-image:repeating-linear-gradient(to bottom,var(--card-border) 0,var(--card-border) 1px,transparent 1px,transparent 56px)}
+.calday-body:hover{background-color:rgba(56,189,248,.06)}
 .calhour{font-size:.72rem;color:var(--muted);padding:2px 6px;box-sizing:border-box;border-bottom:1px solid var(--card-border)}
 .calblock{position:absolute;inset-inline:3px;min-height:30px;border-radius:6px;color:#fff;font-size:.72rem;padding:3px 6px;overflow:hidden;cursor:pointer;box-shadow:var(--shadow-sm);transition:var(--transition)}
 .calblock:hover{filter:brightness(1.08);box-shadow:var(--shadow-md)}
@@ -1000,9 +1001,9 @@ async function buildToothChartMarkup(p,clickOpensFile){
   const trs=await byPatient('treatments',p.id);
   const latest={};trs.forEach(t=>{(t.tooth||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{if(!latest[n]||t.date>=latest[n].date)latest[n]=t})});
   const click=clickOpensFile?`onclick="closeModal('chartModal');openPatient('${p.id}')"`:'';
-  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const c=t&&!missing?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t?(TREAT_ICONS[t.type]||'🦷'):'';
-    const variant=t&&t.type==='زراعة'?'implant':(t&&t.type==='تركيبات (تاج/جسر)'?'crown':null);
-    const svg=toothSvgImg(n,c,missing,variant);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
+  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const c=t&&!missing?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isImplant?(TREAT_ICONS[t.type]||'🦷'):'';
+    const variant=t&&t.type==='تركيبات (تاج/جسر)'?'crown':null;
+    const svg=toothSvgImg(n,c,missing,variant,isImplant?IMPLANT_ICON_SVG:null);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5)">✓</span>':'';
     return `<div class="tooth-mini" ${click} title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
@@ -1147,12 +1148,23 @@ function toothSvgSpec(n,variant){n=Number(n);const s=String(n);if(s.length!==2)r
   const suf=variant?('_'+variant):'';
   return {file:`teeth/${baseQuad}${pos}${suf}.svg`,flipX:quad===2||quad===3||quad===6||quad===7,flipY:!upper}}
 const toothSvgCache={};
-/* variant: null=natural tooth, 'implant'=titanium implant+crown (زراعة), 'crown'=gold crown cap (تركيبات تاج/جسر) */
-function toothSvgImg(n,statusColor,missing,variant){const spec=toothSvgSpec(n,variant);if(!spec)return '';
+/* Small realistic implant marker (metal screw + abutment + crown) shown centered ON the natural tooth graphic —
+   deliberately not the generic 🔩 hardware-bolt emoji, to read as a dental implant rather than a construction bolt. */
+const IMPLANT_ICON_SVG=`<svg viewBox="0 0 24 40" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+  <ellipse cx="12" cy="6" rx="7.2" ry="5.2" fill="#f8fafc" stroke="#94a3b8" stroke-width="1"/>
+  <path d="M7 8.5 L9 14 L15 14 L17 8.5 Z" fill="#9aa7b4" stroke="#64748b" stroke-width=".6"/>
+  <path d="M9.4 14 L14.6 14 L13.3 34 Q12 37.2 10.7 34 Z" fill="#cbd5e1" stroke="#64748b" stroke-width=".8"/>
+  <path d="M9.6 17h4.8M9.4 20h5.2M9.2 23h5.6M9 26h6M8.9 29h6.2M9 31.7h5.7" stroke="#64748b" stroke-width=".9" stroke-linecap="round"/>
+</svg>`;
+/* variant: null=natural tooth, 'implant'=titanium implant+crown (زراعة), 'crown'=gold crown cap (تركيبات تاج/جسر)
+   centerIcon: optional emoji or inline <svg>...</svg> markup shown centered ON TOP of the tooth graphic (like a filling/marker),
+   instead of floating above the tooth number. */
+function toothSvgImg(n,statusColor,missing,variant,centerIcon){const spec=toothSvgSpec(n,variant);if(!spec)return '';
   const tf=`scale(${spec.flipX?-1:1},${spec.flipY?-1:1})`;
   const filt=missing?'grayscale(1) opacity(.4)':'';
   const dot=statusColor?`<span style="position:absolute;left:50%;bottom:${spec.flipY?'auto':'2px'};top:${spec.flipY?'2px':'auto'};transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:${statusColor};border:1.5px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.5)"></span>`:'';
-  return `<div style="position:relative;width:100%;height:100%"><img src="${spec.file}" loading="lazy" style="width:100%;height:100%;object-fit:contain;transform:${tf};filter:${filt}" onerror="this.style.opacity=0.15" alt="${n}">${dot}</div>`}
+  const icon=centerIcon?`<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58%;height:58%;display:flex;align-items:center;justify-content:center;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))">${centerIcon.trim().startsWith('<svg')?centerIcon:`<span style="font-size:1.5rem;line-height:1">${centerIcon}</span>`}</div>`:'';
+  return `<div style="position:relative;width:100%;height:100%"><img src="${spec.file}" loading="lazy" style="width:100%;height:100%;object-fit:contain;transform:${tf};filter:${filt}" onerror="this.style.opacity=0.15" alt="${n}">${icon}${dot}</div>`}
 function toothIllustrationSVG(info){
   const rootsN=info.roots,canalsN=info.canals;
   const spacing=rootsN>=3?[35,70,105]:rootsN===2?[45,95]:[70];
@@ -1283,9 +1295,9 @@ async function renderTreatChart(){if(!$('treatToothChart'))return;
   trs.forEach(t=>{(t.tooth||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(n=>{if(!latest[n]||t.date>=latest[n].date)latest[n]=t})});
   const toothPhoto={};xr.filter(x=>x.kind==='tooth_photo'&&x.tooth).forEach(x=>{const n=String(x.tooth);if(!toothPhoto[n]||x.id>toothPhoto[n].id)toothPhoto[n]=x});
   const curList=$('trTooth')?$('trTooth').value.split(',').map(s=>s.trim()).filter(Boolean):[];
-  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const c=t&&!missing?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t?(TREAT_ICONS[t.type]||'🦷'):'';const ph=toothPhoto[String(n)];
-    const variant=t&&t.type==='زراعة'?'implant':(t&&t.type==='تركيبات (تاج/جسر)'?'crown':null);
-    const svg=toothSvgImg(n,c,missing,variant);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
+  const mk=(n,isUpper)=>{const t=latest[n];const missing=t&&t.type==='خلع';const isImplant=t&&t.type==='زراعة';const c=t&&!missing?(TOOTH_COLORS[t.type]||'#94a3b8'):null;const ic=t&&!isImplant?(TREAT_ICONS[t.type]||'🦷'):'';const ph=toothPhoto[String(n)];
+    const variant=t&&t.type==='تركيبات (تاج/جسر)'?'crown':null;
+    const svg=toothSvgImg(n,c,missing,variant,isImplant?IMPLANT_ICON_SVG:null);const numEl=`<span class="n">${n}</span>${ic?`<span class="ic">${ic}</span>`:''}`;const illusEl=`<div class="tooth-illus">${svg}</div>`;
     const doneBadge=t&&t.done?'<span style="position:absolute;top:1px;left:1px;background:#16a34a;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;box-shadow:0 0 2px rgba(0,0,0,.5);z-index:1">✓</span>':'';
     return `<div class="tooth-mini${curList.includes(String(n))?' picked':''}" onclick="pickTreatTooth(${n})" title="${t?esc(tr(t.type))+(t.done?' — '+tr('منتهي'):''):''}">${doneBadge}<span class="cam${ph?' has':''}" onclick="event.stopPropagation();toothPhotoClick(${n})" title="${tr('صورة السن')}">📷</span><span class="info" onclick="event.stopPropagation();showToothInfo(${n})" title="${tr('معلومات تشريحية دقيقة')}">ℹ️</span>${isUpper?numEl+illusEl:illusEl+numEl}</div>`};
   const half=list.length/2,upper=list.slice(0,half),lower=list.slice(half);
@@ -1476,9 +1488,9 @@ function renderApCalendar(aps,pm){
       let top=(hh-CAL_START_H)*CAL_ROWH+(mm/60*CAL_ROWH);top=Math.max(0,Math.min(top,bodyH-30));
       const st=a.status||'pending';const p=pm[a.patientId]||{};
       const dot=colorMode!=='status'?`border-inline-start:4px solid ${AP_STATUS[st].c};padding-inline-start:4px`:'';
-      return `<div class="calblock" style="top:${top}px;background:${apColorFor(a)};${dot}" title="${esc(AP_STATUS[st].l)}" onclick="calOpenAp('${a.id}')"><b>${a.time.slice(11,16)}</b> ${esc(p.name||'—')}</div>`}).join('');
+      return `<div class="calblock" style="top:${top}px;background:${apColorFor(a)};${dot}" title="${esc(AP_STATUS[st].l)}" onclick="event.stopPropagation();calOpenAp('${a.id}')"><b>${a.time.slice(11,16)}</b> ${esc(p.name||'—')}</div>`}).join('');
     const isToday=iso===today();
-    return `<div class="calday${isToday?' calday-today':''}"><div class="calday-head">${d.toLocaleDateString(LANGS[lang].locale,{weekday:'short'})}<br><span>${d.getDate()}/${d.getMonth()+1}</span></div><div class="calday-body" style="height:${bodyH}px">${blocks}</div></div>`}).join('');
+    return `<div class="calday${isToday?' calday-today':''}"><div class="calday-head">${d.toLocaleDateString(LANGS[lang].locale,{weekday:'short'})}<br><span>${d.getDate()}/${d.getMonth()+1}</span></div><div class="calday-body" style="height:${bodyH}px" title="${tr('اضغط لإضافة موعد بهذا اليوم والوقت')}" onclick="calSlotClick(event,'${iso}')">${blocks}</div></div>`}).join('');
   $('calGrid').innerHTML=`<div class="caltimecol"><div class="calday-head">&nbsp;</div>${hourRows.map(h=>`<div class="calhour" style="height:${CAL_ROWH}px">${String(h).padStart(2,'0')}:00</div>`).join('')}</div><div class="caldays">${dayCols}</div>`;
   renderApLegend('apLegend',aps,pm)}
 async function calOpenAp(id){const a=await get('appointments',id);if(!a)return;const p=await get('patients',a.patientId)||{};const st=a.status||'pending';
@@ -1492,6 +1504,42 @@ async function calOpenAp(id){const a=await get('appointments',id);if(!a)return;c
     </div>`;
   let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);
   box.querySelector('#calStSel').onchange=e=>{setApStatus(a.id,e.target.value);box.remove()}}
+
+/* Quick-add: click an empty slot in the weekly calendar grid to create an appointment at that exact day+hour */
+function calSlotClick(e,iso){
+  const rect=e.currentTarget.getBoundingClientRect();const y=e.clientY-rect.top;
+  let hour=CAL_START_H+Math.floor(y/CAL_ROWH);
+  let mins=Math.round(((y%CAL_ROWH)/CAL_ROWH)*60/15)*15;if(mins>=60){mins=0;hour++}
+  hour=Math.max(CAL_START_H,Math.min(CAL_END_H-1,hour));
+  const hm=String(hour).padStart(2,'0')+':'+String(mins).padStart(2,'0');
+  openCalQuickAdd(iso,hm)}
+async function openCalQuickAdd(iso,hm){
+  const ps=visiblePatients(byActive(await getAll('patients'))).sort((a,b)=>a.name.localeCompare(b.name,'ar'));
+  const dLabel=new Date(iso+'T00:00').toLocaleDateString(LANGS[lang].locale,{weekday:'long',day:'numeric',month:'long'});
+  const box=document.createElement('div');box.className='alertbox';
+  box.innerHTML=`<b>➕ ${tr('إضافة موعد')} — ${esc(dLabel)}</b>
+    <div class="field" style="margin-top:8px"><label>${tr('المريض')}</label><select id="calqPatient">${ps.length?ps.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join(''):`<option value="">— ${tr('أضف مريضًا أولًا')} —</option>`}</select></div>
+    <div class="grid grid-2">
+      <div class="field"><label>${tr('اليوم')}</label><input type="date" id="calqDate" value="${iso}"></div>
+      <div class="field"><label>${tr('الساعة')}</label><input type="time" id="calqTime" value="${hm}"></div>
+    </div>
+    <div class="field"><label>${tr('سبب الزيارة')}</label><input id="calqReason"></div>
+    <div class="row" style="margin-top:8px;gap:6px">
+      <button class="btn small" id="calqSave">${tr('حفظ الموعد')}</button>
+      <button class="btn small secondary" onclick="this.closest('.alertbox').remove()">${tr('إلغاء')}</button>
+    </div>`;
+  let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);
+  box.querySelector('#calqSave').onclick=async()=>{
+    const pid=box.querySelector('#calqPatient').value,dt=box.querySelector('#calqDate').value,tm=box.querySelector('#calqTime').value;
+    if(!pid||!dt||!tm)return toast(tr('اختر المريض والوقت'));
+    const t=dt+'T'+tm;
+    const p=await get('patients',pid);
+    if(p&&p.doctorId){const doc=findUser(p.doctorId);
+      if(doc&&doc.role==='doctor'){const sched=doc.schedule||defaultSchedule();
+        const day=new Date(t).getDay();const d=sched.find(s=>s.day===day);
+        if(d&&!d.enabled)return toast('🚫 '+tr('الدكتور')+' '+doc.u+' '+tr('لا يعمل يوم')+' '+tr(SCHED_DAYS[day])+' — '+tr('لا يمكن حجز موعد بهذا اليوم'))}}
+    await put('appointments',{id:uid(),patientId:pid,time:t,reason:box.querySelector('#calqReason').value.trim()});
+    toast(tr('تم حفظ الموعد'));box.remove();renderAppointments()}}
 
 /* ---------- Appointment color-coding (status / treatment type / patient) ---------- */
 function apHashColor(str){let h=0;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return 'hsl('+(h%360)+',65%,45%)'}
