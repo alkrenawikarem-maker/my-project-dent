@@ -1860,7 +1860,46 @@ async function renderUsers(){const me=curUser&&curUser.u;
 <td><input value="${esc(x.recEmail||'')}" placeholder="you@example.com" style="width:130px" onchange="setUserRecovery('${esc(x.u)}','recEmail',this.value)"></td>
 <td><input value="${esc(x.recPhone||'')}" placeholder="05xxxxxxxx" style="width:110px" onchange="setUserRecovery('${esc(x.u)}','recPhone',this.value)"></td>
 <td><button class="btn small ${x.active===false?'':'secondary'}" ${x.u===me?'disabled':''} onclick="toggleActive('${esc(x.u)}')">${x.active===false?tr('تفعيل'):tr('إيقاف')}</button></td>
-<td>${(x.u===me||isLastMgr)?'':`<button class="btn danger small" onclick="delUser('${esc(x.u)}')">${tr('حذف')}</button>`}${x.u!==me?` <button class="btn small secondary" onclick="quickSwitchTo('${esc(x.u)}')">🔄 ${tr('دخول كـ')}</button>`:''}${x.role==='doctor'?` <button class="btn small secondary" onclick="openScheduleModal('${esc(x.u)}')">🕒 ${tr('جدول العمل')}</button>`:''}</td></tr>`}).join('')+'</table>':''}
+<td><button class="btn small secondary" onclick="renameUser('${esc(x.u)}')">✏️ ${tr('تغيير الاسم/كلمة المرور')}</button> ${(x.u===me||isLastMgr)?'':`<button class="btn danger small" onclick="delUser('${esc(x.u)}')">${tr('حذف')}</button>`}${x.u!==me?` <button class="btn small secondary" onclick="quickSwitchTo('${esc(x.u)}')">🔄 ${tr('دخول كـ')}</button>`:''}${x.role==='doctor'?` <button class="btn small secondary" onclick="openScheduleModal('${esc(x.u)}')">🕒 ${tr('جدول العمل')}</button>`:''}</td></tr>`}).join('')+'</table>':''}
+/* Manager-only: change any user's username and/or password immediately.
+   A new username requires a new password in the same step, because the stored password hash is
+   derived from (username + password) together — so it can't stay valid under a different username. */
+function renameUser(oldU){
+  if(!(curUser&&perm('manageUsers')))return toast(tr('غير مسموح'));
+  const target=findUser(oldU);if(!target)return;
+  const box=document.createElement('div');box.className='alertbox';
+  box.innerHTML=`<b>✏️ ${tr('تغيير اسم المستخدم / كلمة المرور')}</b>
+    <p style="color:var(--muted);font-size:.82rem;margin:6px 0">${tr('الحساب')}: <b>${esc(oldU)}</b></p>
+    <div class="field"><label>${tr('اسم المستخدم')}</label><input id="renU" value="${esc(oldU)}"></div>
+    <div class="field"><label>${tr('كلمة المرور الجديدة')}</label><div class="pwd-wrap"><input type="password" id="renP" autocomplete="new-password"><button type="button" class="pwd-toggle" onclick="togglePwd('renP',this)">👁️</button></div></div>
+    <div class="field"><label>${tr('تأكيد كلمة المرور')}</label><div class="pwd-wrap"><input type="password" id="renP2" autocomplete="new-password"><button type="button" class="pwd-toggle" onclick="togglePwd('renP2',this)">👁️</button></div></div>
+    <p style="color:var(--muted);font-size:.78rem;margin:4px 0 8px">ℹ️ ${tr('التغيير يصير فورًا. أخبر صاحب الحساب باسم المستخدم وكلمة المرور الجديدين ليسجّل دخول من جديد.')}</p>
+    <div class="row" style="gap:6px">
+      <button class="btn small" id="renSaveBtn">💾 ${tr('حفظ الآن')}</button>
+      <button class="btn small secondary" onclick="this.closest('.alertbox').remove()">${tr('إلغاء')}</button>
+    </div>`;
+  let c=$('alerts');if(!c){c=document.createElement('div');c.id='alerts';document.body.appendChild(c)}c.appendChild(box);
+  box.querySelector('#renSaveBtn').onclick=async()=>{
+    const newU=box.querySelector('#renU').value.trim();
+    const p=box.querySelector('#renP').value,p2=box.querySelector('#renP2').value;
+    if(newU.length<3)return toast(tr('اسم المستخدم 3 أحرف على الأقل'));
+    if(p.length<6)return toast(tr('كلمة المرور 6 أحرف على الأقل'));
+    if(p!==p2)return toast(tr('كلمتا المرور غير متطابقتين'));
+    const clash=findUser(newU);if(clash&&clash.u.toLowerCase()!==oldU.toLowerCase())return toast(tr('اسم المستخدم مستخدم مسبقًا'));
+    const isSelf=oldU.toLowerCase()===(curUser&&curUser.u||'').toLowerCase();
+    target.u=newU;target.h=await uhash(newU,p);
+    if(target.role==='doctor'){
+      const ps=await getAll('patients');
+      for(const pt of ps){if(pt.doctorId===oldU){pt.doctorId=newU;await put('patients',pt)}}
+    }
+    await put('settings',{...settings,id:'main'});
+    try{await del('presence',oldU)}catch(e){}
+    toast('✅ '+tr('تم تغيير الاسم/كلمة المرور فورًا'));
+    box.remove();
+    if(isSelf){curUser=target;
+      try{if(sessionStorage.getItem('authUser'))sessionStorage.setItem('authUser',newU);if(localStorage.getItem('authUser'))localStorage.setItem('authUser',newU)}catch(e){}
+      applyLock()}
+    renderUsers()}}
 let usersLiveTimer=null;
 function startUsersLiveRefresh(){if(usersLiveTimer)clearInterval(usersLiveTimer);
   usersLiveTimer=setInterval(()=>{const v=document.querySelector('.view.active');if(v&&v.id==='view-settings'&&curUser&&perm('manageUsers'))renderUsers();else{clearInterval(usersLiveTimer);usersLiveTimer=null}},20000)}
@@ -2004,6 +2043,12 @@ async function importData(){const f=$('importFile').files[0];if(!f)return toast(
 const LANGS={ar:{name:'العربية',dir:'rtl',locale:'ar-EG',num:'ar'},he:{name:'עברית',dir:'rtl',locale:'he-IL',num:'he'},en:{name:'English',dir:'ltr',locale:'en-GB',num:'en'}};
 let lang=(()=>{try{return localStorage.getItem('lang')||'ar'}catch(e){return'ar'}})();
 const L={
+'تغيير الاسم/كلمة المرور':['שינוי שם/סיסמה','Change name/password'],'تغيير اسم المستخدم / كلمة المرور':['שינוי שם משתמש / סיסמה','Change username / password'],'الحساب':['החשבון','Account'],
+'كلمة المرور الجديدة':['סיסמה חדשה','New password'],'تأكيد كلمة المرور':['אימות סיסמה','Confirm password'],
+'التغيير يصير فورًا. أخبر صاحب الحساب باسم المستخدم وكلمة المرور الجديدين ليسجّل دخول من جديد.':['השינוי מתבצע מיידית. עדכן/י את בעל החשבון בשם המשתמש והסיסמה החדשים כדי שיוכל להתחבר מחדש.','The change takes effect immediately. Tell the account holder the new username and password so they can log in again.'],
+'حفظ الآن':['שמירה כעת','Save now'],'اسم المستخدم 3 أحرف على الأقل':['שם המשתמש חייב לפחות 3 תווים','Username must be at least 3 characters'],
+'كلمة المرور 6 أحرف على الأقل':['הסיסמה חייבת לפחות 6 תווים','Password must be at least 6 characters'],'كلمتا المرور غير متطابقتين':['הסיסמאות אינן תואמות','Passwords do not match'],
+'اسم المستخدم مستخدم مسبقًا':['שם המשתמש כבר קיים','Username already taken'],'تم تغيير الاسم/كلمة المرور فورًا':['שם המשתמש/הסיסמה שונו מיידית','Username/password changed immediately'],
 'إرسال بالإيميل':['שליחה באימייל','Send by email'],'إرسال ملف بالإيميل':['שליחת קובץ באימייל','Send file by email'],'إرسال الفاتورة بالإيميل':['שליחת החשבונית באימייל','Email the invoice'],'إرسال الملف بالإيميل':['שליחת הקובץ באימייל','Send the file by email'],
 'بريد المستلم':['אימייל הנמען','Recipient email'],'الموضوع':['נושא','Subject'],'نص الرسالة':['תוכן ההודעה','Message body'],'اختياري':['אופציונלי','optional'],
 'تنزيل وفتح الإيميل':['הורדה ופתיחת האימייל','Download & open email'],'فتح تطبيق الإيميل':['פתיחת אפליקציית האימייל','Open email app'],'اكتب بريد المستلم':['הזן את אימייל הנמען','Enter the recipient email'],
